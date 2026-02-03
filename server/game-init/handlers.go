@@ -63,7 +63,7 @@ func JoinHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.
 		writeError(w, http.StatusConflict, "username already in use")
 		return
 	}
-	if !globalState.Join(req.Code, req.Username) {
+	if !globalState.CanJoin(req.Code, req.Username) {
 		writeError(w, http.StatusBadRequest, "invalid code or username already in game")
 		return
 	}

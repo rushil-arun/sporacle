@@ -55,6 +55,9 @@ func (m *Manager) HasPlayer(username string) bool {
 func (m *Manager) AddPlayer(username string, p *Player) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if p == nil {
+		return
+	}
 	m.Players[username] = p
 	m.Colors[p.Color] = struct{}{}
 }

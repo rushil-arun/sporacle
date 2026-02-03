@@ -82,13 +82,13 @@ func (state *GlobalState) Create(code, title string) *game.Manager {
 	for _, item := range items {
 		m.Board[item] = nil
 	}
-	state.SetGame(code, m)
+	state.games[code] = m
 	state.mu.Unlock()
 	return m
 }
 
 // Join returns true if the code exists and the username is not already in that game.
-func (state *GlobalState) Join(code, username string) bool {
+func (state *GlobalState) CanJoin(code, username string) bool {
 	m := state.GetGame(code)
 	if m == nil {
 		return false
