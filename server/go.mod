@@ -1,4 +1,4 @@
-module github.com/rushil-arun/sporcle
+module server
 
 go 1.25.5
 
