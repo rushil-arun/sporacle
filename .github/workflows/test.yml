@@ -1,5 +1,5 @@
 
-name: CI
+name: test
 
 # Controls when the workflow will run
 on: [push, pull_request]
@@ -20,6 +20,6 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Server CI
-        run: make ci
+      - name: Test
+        run: make test
         working-directory: server

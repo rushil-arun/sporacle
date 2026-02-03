@@ -1,4 +1,4 @@
-.PHONY: ci fmt vet test
+.PHONY: test style tst vet fmt
 
 fmt: 
 	@test -z "$$(gofmt -s -l .)"
@@ -6,7 +6,9 @@ fmt:
 vet: 
 	go vet ./...
 
-test: 
-	go test ./...
+tst: 
+	go test ./tst/...
 
-ci: fmt vet test
+style: fmt vet
+
+test: tst
