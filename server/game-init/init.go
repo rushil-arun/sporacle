@@ -11,8 +11,8 @@ func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState) {
 	mux.HandleFunc("/create-game", func(w http.ResponseWriter, r *http.Request) {
 		CreateHandler(globalState, w, r)
 	})
-	mux.HandleFunc("/join-game", func(w http.ResponseWriter, r *http.Request) {
-		JoinHandler(globalState, w, r)
+	mux.HandleFunc("/get-ws-url", func(w http.ResponseWriter, r *http.Request) {
+		GetWSURLHandler(globalState, w, r)
 	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		Connect(globalState, w, r)

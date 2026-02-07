@@ -2,9 +2,11 @@ package gameinit
 
 // CreateRequest is the JSON body for /create-game.
 type CreateRequest struct {
-	Username string `json:"username"`
-	Code     string `json:"code"`
-	Title    string `json:"title"`
+	Title string `json:"title"`
+}
+
+type CreateResponse struct {
+	Code string `json:"code"`
 }
 
 // JoinRequest is the JSON body for /join-game.

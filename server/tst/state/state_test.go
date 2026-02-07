@@ -12,12 +12,8 @@ func TestNewGlobalState(t *testing.T) {
 	if s == nil {
 		t.Fatal("NewGlobalState returned nil")
 	}
-	// New state should have no games and no usernames
 	if state.NewGlobalState().GetGame("any") != nil {
 		t.Error("new state should not contain any game")
-	}
-	if state.NewGlobalState().HasUsername("LeBron") {
-		t.Error("new state should not have any username")
 	}
 }
 
@@ -40,81 +36,39 @@ func TestSetGameAndGetGame(t *testing.T) {
 	}
 }
 
-func TestHasUsername(t *testing.T) {
-	s := state.NewGlobalState()
-	if s.HasUsername("alice") {
-		t.Error("HasUsername(alice) expected false on empty state")
-	}
-	ok := s.AddUsername("alice")
-	if !ok {
-		t.Fatal("AddUsername(alice) expected true")
-	}
-	if !s.HasUsername("alice") {
-		t.Error("HasUsername(alice) expected true after AddUsername")
-	}
-}
-
-func TestAddUsername(t *testing.T) {
-	s := state.NewGlobalState()
-	ok := s.AddUsername("bob")
-	if !ok {
-		t.Error("AddUsername(bob) first time expected true")
-	}
-	ok2 := s.AddUsername("bob")
-	if ok2 {
-		t.Error("AddUsername(bob) second time expected false (already in use)")
-	}
-}
-
-func TestRemoveUsername(t *testing.T) {
-	s := state.NewGlobalState()
-	s.AddUsername("carol")
-	if !s.HasUsername("carol") {
-		t.Fatal("expected carol to be present")
-	}
-	s.RemoveUsername("carol")
-	if s.HasUsername("carol") {
-		t.Error("RemoveUsername(carol) should remove the username")
-	}
-	// Removing again should be no-op
-	s.RemoveUsername("carol")
-	if s.HasUsername("carol") {
-		t.Error("second RemoveUsername should still leave carol absent")
-	}
-}
-
 func TestCreate(t *testing.T) {
-	// Point to repo trivia from tst/state (server/tst/state -> ../../../trivia)
 	saved := state.TriviaBasePath
 	state.TriviaBasePath = "../../../trivia"
 	defer func() { state.TriviaBasePath = saved }()
 
 	s := state.NewGlobalState()
-	code := "CODE01"
 	title := "US Capitals"
 
-	m := s.Create(code, title)
+	m := s.Create(title)
 	if m == nil {
-		t.Fatal("Create with valid code and title expected non-nil Manager")
+		t.Fatal("Create with valid title expected non-nil Manager")
 	}
 	if m.Title != title {
 		t.Errorf("Create Manager Title = %q, want %q", m.Title, title)
 	}
-	if m.Code != code {
-		t.Errorf("Create Manager Code = %q, want %q", m.Code, code)
+	if m.Code == "" || len(m.Code) != 6 {
+		t.Errorf("Create Manager Code should be 6 chars, got %q", m.Code)
 	}
 	if len(m.Board) == 0 {
 		t.Error("Create should populate Board from trivia")
 	}
 
-	// Duplicate code should return nil
-	m2 := s.Create(code, "NBA Teams")
-	if m2 != nil {
-		t.Error("Create with existing code expected nil")
+	// Second Create returns a different game with a different code
+	m2 := s.Create("NBA Teams")
+	if m2 == nil {
+		t.Fatal("Create second game expected non-nil Manager")
+	}
+	if m2.Code == m.Code {
+		t.Error("Create should generate distinct codes for different games")
 	}
 
 	// Invalid title should return nil
-	m3 := s.Create("OTHER", "NonExistentTitleXYZ")
+	m3 := s.Create("NonExistentTitleXYZ")
 	if m3 != nil {
 		t.Error("Create with invalid title expected nil")
 	}
@@ -126,19 +80,25 @@ func TestCanJoin(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	s := state.NewGlobalState()
-	code := "JOIN01"
-	s.Create(code, "US Capitals")
-
-	// Join with valid code and new username
-	if !s.CanJoin(code, "player1") {
-		t.Error("Join(code, player1) expected true")
+	m := s.Create("US Capitals")
+	if m == nil {
+		t.Fatal("Create failed")
 	}
-	// Different username in same game should be true
-	if !s.CanJoin(code, "player2") {
-		t.Error("Join(code, player2) expected true")
+	code := m.Code
+
+	gameExists1, usernameFree1 := s.CanJoin(code, "player1")
+	gameExists2, usernameFree2 := s.CanJoin(code, "player2")
+	gameExists3, usernameFree3 := s.CanJoin("BADCODE", "player3")
+	// Valid code and new username
+	if !gameExists1 || !usernameFree1 {
+		t.Error("CanJoin(code, player1) expected true, true")
+	}
+	// Same game, different username
+	if !gameExists2 || !usernameFree2 {
+		t.Error("CanJoin(code, player2) expected true, true")
 	}
 	// Invalid code
-	if s.CanJoin("BADCODE", "player3") {
-		t.Error("Join with invalid code expected false")
+	if gameExists3 || usernameFree3 {
+		t.Error("CanJoin with invalid code expected false, false")
 	}
 }

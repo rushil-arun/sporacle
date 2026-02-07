@@ -34,9 +34,9 @@ func TestCreateHandler_InvalidBody(t *testing.T) {
 	}
 }
 
-func TestCreateHandler_MissingFields(t *testing.T) {
+func TestCreateHandler_MissingTitle(t *testing.T) {
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(map[string]string{"username": "LeBron", "code": "ABC123"}) // missing title
+	body, _ := json.Marshal(map[string]string{}) // missing title
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(globalState, rec, req)
@@ -45,50 +45,18 @@ func TestCreateHandler_MissingFields(t *testing.T) {
 	}
 }
 
-func TestCreateHandler_UsernameConflict(t *testing.T) {
+func TestCreateHandler_InvalidTitle(t *testing.T) {
 	saved := state.TriviaBasePath
 	state.TriviaBasePath = "../../../trivia"
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	globalState.AddUsername("LeBron")
-	body, _ := json.Marshal(gameinit.CreateRequest{Username: "LeBron", Code: "CODE1", Title: "US Capitals"})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle"})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(globalState, rec, req)
-	if rec.Code != http.StatusConflict {
-		t.Errorf("CreateHandler username conflict: status = %d, want %d", rec.Code, http.StatusConflict)
-	}
-}
-
-func TestCreateHandler_CodeExistsOrInvalidTitle(t *testing.T) {
-	saved := state.TriviaBasePath
-	state.TriviaBasePath = "../../../trivia"
-	defer func() { state.TriviaBasePath = saved }()
-
-	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Username: "LeBron", Code: "CODE1", Title: "US Capitals"})
-	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
-	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("first CreateHandler: status = %d, want 200", rec.Code)
-	}
-	// Same code again
-	body2, _ := json.Marshal(gameinit.CreateRequest{Username: "bob", Code: "CODE1", Title: "NBA Teams"})
-	req2 := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body2))
-	rec2 := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec2, req2)
-	if rec2.Code != http.StatusBadRequest {
-		t.Errorf("CreateHandler duplicate code: status = %d, want %d", rec2.Code, http.StatusBadRequest)
-	}
-	// Invalid title
-	body3, _ := json.Marshal(gameinit.CreateRequest{Username: "bob", Code: "CODE2", Title: "NoSuchTitle"})
-	req3 := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body3))
-	rec3 := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec3, req3)
-	if rec3.Code != http.StatusBadRequest {
-		t.Errorf("CreateHandler invalid title: status = %d, want %d", rec3.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("CreateHandler invalid title: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }
 
@@ -98,129 +66,84 @@ func TestCreateHandler_Success(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Username: "LeBron", Code: "NEW01", Title: "US Capitals"})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals"})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
-	req.Host = "example.com"
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(globalState, rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("CreateHandler success: status = %d, want 200", rec.Code)
 	}
-	var resp gameinit.WSURLResponse
+	var resp gameinit.CreateResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.URL == "" {
-		t.Error("CreateHandler success: URL should be non-empty")
+	if resp.Code == "" {
+		t.Error("CreateHandler success: Code should be non-empty")
 	}
-	expected := "ws://example.com/ws?game=NEW01&user=LeBron"
-	if resp.URL != expected {
-		t.Errorf("CreateHandler success: URL = %q, want %q", resp.URL, expected)
+	if len(resp.Code) != 6 {
+		t.Errorf("CreateHandler success: Code length = %d, want 6", len(resp.Code))
 	}
 }
 
-func TestJoinHandler_MethodNotAllowed(t *testing.T) {
+// GetWSURLHandler returns a WS URL for the given code/username without validating
+// that the game exists or the username is free; that is checked in Connect().
+
+func TestGetWSURLHandler_MethodNotAllowed(t *testing.T) {
 	globalState := state.NewGlobalState()
-	req := httptest.NewRequest(http.MethodGet, "/join-game", nil)
+	body, _ := json.Marshal(gameinit.JoinRequest{Username: "bob", Code: "ABC123"})
+	req := httptest.NewRequest(http.MethodPost, "/get-ws-url", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
+	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("JoinHandler GET: status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+		t.Errorf("GetWSURLHandler POST: status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-func TestJoinHandler_InvalidBody(t *testing.T) {
+func TestGetWSURLHandler_InvalidBody(t *testing.T) {
 	globalState := state.NewGlobalState()
-	req := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader([]byte("not json")))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader([]byte("not json")))
 	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
+	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("JoinHandler invalid body: status = %d, want %d", rec.Code, http.StatusBadRequest)
+		t.Errorf("GetWSURLHandler invalid body: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }
 
-func TestJoinHandler_MissingFields(t *testing.T) {
+func TestGetWSURLHandler_MissingFields(t *testing.T) {
 	globalState := state.NewGlobalState()
 	body, _ := json.Marshal(map[string]string{"username": "LeBron"}) // missing code
-	req := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
+	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("JoinHandler missing code: status = %d, want %d", rec.Code, http.StatusBadRequest)
+		t.Errorf("GetWSURLHandler missing code: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-}
-
-func TestJoinHandler_UsernameConflict(t *testing.T) {
-	saved := state.TriviaBasePath
-	state.TriviaBasePath = "../../../trivia"
-	defer func() { state.TriviaBasePath = saved }()
-
-	globalState := state.NewGlobalState()
-	globalState.Create("JOIN1", "US Capitals")
-	globalState.AddUsername("LeBron")
-	body, _ := json.Marshal(gameinit.JoinRequest{Username: "LeBron", Code: "JOIN1"})
-	req := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body))
-	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
-	if rec.Code != http.StatusConflict {
-		t.Errorf("JoinHandler username conflict: status = %d, want %d", rec.Code, http.StatusConflict)
-	}
-}
-
-func TestJoinHandler_InvalidCodeOrAlreadyInGame(t *testing.T) {
-	saved := state.TriviaBasePath
-	state.TriviaBasePath = "../../../trivia"
-	defer func() { state.TriviaBasePath = saved }()
-
-	globalState := state.NewGlobalState()
-	globalState.Create("JOIN2", "US Capitals")
-	// Invalid code
-	body, _ := json.Marshal(gameinit.JoinRequest{Username: "player2", Code: "BADCODE"})
-	req := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body))
-	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("JoinHandler invalid code: status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-	// Username already in game (player added to game but not via JoinHandler, so no global username)
-	m := globalState.GetGame("JOIN2")
-	if m == nil {
-		t.Fatal("game JOIN2 not found")
-	}
-	body1, _ := json.Marshal(gameinit.JoinRequest{Username: "player2", Code: "JOIN2"})
-	req1 := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body1))
-	rec1 := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec1, req1)
-	body2, _ := json.Marshal(gameinit.JoinRequest{Username: "player2", Code: "JOIN2"})
-	req2 := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body2))
+	body2, _ := json.Marshal(map[string]string{"code": "ABC123"}) // missing username
+	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body2))
 	rec2 := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec2, req2)
-	if rec2.Code != http.StatusConflict {
-		t.Errorf("JoinHandler username already in game: status = %d, want %d", rec2.Code, http.StatusBadRequest)
+	gameinit.GetWSURLHandler(globalState, rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Errorf("GetWSURLHandler missing username: status = %d, want %d", rec2.Code, http.StatusBadRequest)
 	}
 }
 
-func TestJoinHandler_Success(t *testing.T) {
-	saved := state.TriviaBasePath
-	state.TriviaBasePath = "../../../trivia"
-	defer func() { state.TriviaBasePath = saved }()
-
+func TestGetWSURLHandler_Success(t *testing.T) {
 	globalState := state.NewGlobalState()
-	globalState.Create("JOIN3", "US Capitals")
 	body, _ := json.Marshal(gameinit.JoinRequest{Username: "bob", Code: "JOIN3"})
-	req := httptest.NewRequest(http.MethodPost, "/join-game", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body))
 	req.Host = "test.local"
 	rec := httptest.NewRecorder()
-	gameinit.JoinHandler(globalState, rec, req)
+	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("JoinHandler success: status = %d, want 200", rec.Code)
+		t.Fatalf("GetWSURLHandler success: status = %d, want 200", rec.Code)
 	}
 	var resp gameinit.WSURLResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.URL != "ws://test.local/ws?game=JOIN3&user=bob" {
-		t.Errorf("JoinHandler success: URL = %q, want ws://test.local/ws?game=JOIN3&user=bob", resp.URL)
+	expected := "ws://test.local/ws?game=JOIN3&user=bob"
+	if resp.URL != expected {
+		t.Errorf("GetWSURLHandler success: URL = %q, want %s", resp.URL, expected)
 	}
 }
 
@@ -256,16 +179,17 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	globalState.Create("WS1", "US Capitals")
-	m := globalState.GetGame("WS1")
+	m := globalState.Create("US Capitals")
 	if m == nil {
-		t.Fatal("game not found")
+		t.Fatal("Create failed")
 	}
-	// Simulate player already in game (no real WebSocket) so Connect returns 409 before Upgrade.
-	fakePlayer := game.NewPlayer("LeBron", nil, m.AssignColor(), "WS1")
+	code := m.Code
+	// Username-already-in-game is checked in Connect(), not in GetWSURL. Simulate player
+	// already in game so Connect returns 409 before Upgrade.
+	fakePlayer := game.NewPlayer("LeBron", nil, m.AssignColor(), code)
 	m.AddPlayer("LeBron", fakePlayer)
 
-	req := httptest.NewRequest(http.MethodGet, "/ws?game=WS1&user=LeBron", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ws?game="+code+"&user=LeBron", nil)
 	rec := httptest.NewRecorder()
 	gameinit.Connect(globalState, rec, req)
 
@@ -274,33 +198,112 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	}
 }
 
-func TestConnect_SuccessWebSocket(t *testing.T) {
+func TestConnect_FirstConnection(t *testing.T) {
 	saved := state.TriviaBasePath
 	state.TriviaBasePath = "../../../trivia"
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	globalState.Create("WS2", "US Capitals")
-	if globalState.GetGame("WS2") == nil {
-		t.Fatal("game not found")
+	m := globalState.Create("US Capitals")
+	if m == nil {
+		t.Fatal("Create failed")
 	}
+	code := m.Code
 
 	mux := http.NewServeMux()
 	gameinit.RegisterRoutes(mux, globalState)
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?game=WS2&user=alice"
+	user := "LeBron"
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") +
+		"/ws?game=" + code + "&user=" + user
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("WebSocket dial: %v", err)
 	}
 	defer conn.Close()
 
-	// Optionally verify the player was added
-	m := globalState.GetGame("WS2")
-	if m == nil || !m.HasPlayer("alice") {
-		t.Error("expected alice to be added to game after Connect")
+	gameM := globalState.GetGame(code)
+	if gameM == nil || !gameM.HasPlayer(user) {
+		t.Errorf("expected %s to be added to game after Connect", user)
+	}
+}
+
+func TestConnect_DuplicateUsernameRejected(t *testing.T) {
+	saved := state.TriviaBasePath
+	state.TriviaBasePath = "../../../trivia"
+	defer func() { state.TriviaBasePath = saved }()
+
+	globalState := state.NewGlobalState()
+	m := globalState.Create("US Capitals")
+	if m == nil {
+		t.Fatal("Create failed")
+	}
+	code := m.Code
+
+	mux := http.NewServeMux()
+	gameinit.RegisterRoutes(mux, globalState)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	user := "LeBron"
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+
+		strings.TrimPrefix(server.URL, "http")+"/ws?game="+
+		code+"&user="+user, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial: %v", err)
+	}
+	defer conn.Close()
+
+	// Second connection with same username for same game must be rejected (409).
+	dupReq := httptest.NewRequest(http.MethodGet, "/ws?game="+code+"&user="+user, nil)
+	dupRec := httptest.NewRecorder()
+	mux.ServeHTTP(dupRec, dupReq)
+	if dupRec.Code != http.StatusConflict {
+		t.Errorf("second Connect with same user: status = %d, want %d"+
+			"(username already connected)", dupRec.Code, http.StatusConflict)
+	}
+}
+
+func TestConnect_TwoDifferentUsers(t *testing.T) {
+	saved := state.TriviaBasePath
+	state.TriviaBasePath = "../../../trivia"
+	defer func() { state.TriviaBasePath = saved }()
+
+	globalState := state.NewGlobalState()
+	m := globalState.Create("US Capitals")
+	if m == nil {
+		t.Fatal("Create failed")
+	}
+	code := m.Code
+
+	mux := http.NewServeMux()
+	gameinit.RegisterRoutes(mux, globalState)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	user1 := "LeBron"
+	conn1, _, err := websocket.DefaultDialer.Dial("ws"+
+		strings.TrimPrefix(server.URL, "http")+"/ws?game="+
+		code+"&user="+user1, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial first user: %v", err)
+	}
+	defer conn1.Close()
+
+	user2 := "Steph"
+	conn2, _, err := websocket.DefaultDialer.Dial("ws"+
+		strings.TrimPrefix(server.URL, "http")+"/ws?game="+
+		code+"&user="+user2, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial second user: %v", err)
+	}
+	defer conn2.Close()
+
+	gameM := globalState.GetGame(code)
+	if gameM == nil || !gameM.HasPlayer(user1) || !gameM.HasPlayer(user2) {
+		t.Errorf("expected both %s and %s to be in the game", user1, user2)
 	}
 }
 
@@ -308,19 +311,21 @@ func TestRegisterRoutes(t *testing.T) {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
 	gameinit.RegisterRoutes(mux, globalState)
-	// Verify routes respond (create-game with GET returns 405)
+	// Verify routes respond: create-game with GET returns 405
 	req := httptest.NewRequest(http.MethodGet, "/create-game", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("RegisterRoutes /create-game: status = %d, want 405", rec.Code)
 	}
-	req2 := httptest.NewRequest(http.MethodGet, "/join-game", nil)
+	// get-ws-url with empty body returns 400 (invalid request body)
+	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url", nil)
 	rec2 := httptest.NewRecorder()
 	mux.ServeHTTP(rec2, req2)
-	if rec2.Code != http.StatusMethodNotAllowed {
-		t.Errorf("RegisterRoutes /join-game: status = %d, want 405", rec2.Code)
+	if rec2.Code != http.StatusBadRequest {
+		t.Errorf("RegisterRoutes /get-ws-url: status = %d, want 400", rec2.Code)
 	}
+	// /ws with no query params returns 400
 	req3 := httptest.NewRequest(http.MethodGet, "/ws", nil)
 	rec3 := httptest.NewRecorder()
 	mux.ServeHTTP(rec3, req3)

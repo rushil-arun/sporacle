@@ -25,28 +25,25 @@ func CreateHandler(globalState *state.GlobalState, w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Username == "" || req.Code == "" || req.Title == "" {
-		writeError(w, http.StatusBadRequest, "username, code, and title required")
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "title required")
 		return
 	}
-	if globalState.HasUsername(req.Username) {
-		writeError(w, http.StatusConflict, "username already in use")
-		return
-	}
-	m := globalState.Create(req.Code, req.Title)
-	if m == nil {
-		writeError(w, http.StatusBadRequest, "code already in use or invalid title")
-		return
-	}
-	globalState.AddUsername(req.Username)
 
-	url := buildWSURL(r, req.Code, req.Username)
-	writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
+	m := globalState.Create(req.Title)
+	if m == nil {
+		writeError(w, http.StatusBadRequest, "Invalid title")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code})
 }
 
-// Join handles POST /join-game: validates join and returns wss URL.
-func JoinHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+/*
+Returns a WS URL for a client trying to join a game.
+*/
+func GetWSURLHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -59,13 +56,9 @@ func JoinHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, "username and code required")
 		return
 	}
-
-	if !globalState.CanJoin(req.Code, req.Username) {
-		writeError(w, http.StatusBadRequest, "invalid code or username already in game")
-		return
-	}
-	globalState.AddUsername(req.Username)
-
+	// note that this URL could be invalid (code might not match a game, or username
+	// could be taken).
+	// Since this needs to be checked in Connect(), it won't be checked here.
 	url := buildWSURL(r, req.Code, req.Username)
 	writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
 }
@@ -78,12 +71,16 @@ func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "game and user query params required")
 		return
 	}
+
 	m := globalState.GetGame(code)
 	if m == nil {
 		writeError(w, http.StatusNotFound, "game not found")
 		return
 	}
-	if m.HasPlayer(username) {
+
+	m.Lock()
+	defer m.Unlock()
+	if m.HasPlayerLocked(username) {
 		writeError(w, http.StatusConflict, "username already connected to this game")
 		return
 	}
@@ -92,9 +89,9 @@ func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		return
 	}
-	color := m.AssignColor()
+	color := m.AssignColorLocked()
 	player := game.NewPlayer(username, conn, color, code)
-	m.AddPlayer(username, player)
+	m.AddPlayerLocked(username, player)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

@@ -66,10 +66,40 @@ func (m *Manager) AddPlayer(username string, p *Player) {
 func (m *Manager) AssignColor() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.AssignColorLocked()
+}
+
+// Lock acquires the Manager's mutex. Use with Unlock to wrap critical sections.
+func (m *Manager) Lock() {
+	m.mu.Lock()
+}
+
+// Unlock releases the Manager's mutex.
+func (m *Manager) Unlock() {
+	m.mu.Unlock()
+}
+
+// HasPlayerLocked returns whether the username is already a player. Caller must hold lock via Lock/Unlock.
+func (m *Manager) HasPlayerLocked(username string) bool {
+	_, ok := m.Players[username]
+	return ok
+}
+
+// AssignColorLocked returns a hex color not yet used. Caller must hold lock.
+func (m *Manager) AssignColorLocked() string {
 	for _, c := range PlayerColors {
 		if _, used := m.Colors[c]; !used {
 			return c
 		}
 	}
 	return "#888888"
+}
+
+// AddPlayerLocked adds the player. Caller must hold lock.
+func (m *Manager) AddPlayerLocked(username string, p *Player) {
+	if p == nil {
+		return
+	}
+	m.Players[username] = p
+	m.Colors[p.Color] = struct{}{}
 }
