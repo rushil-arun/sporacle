@@ -7,6 +7,7 @@ import (
 
 	gameinit "server/game-init"
 	state "server/state"
+	trivia "server/trivia"
 )
 
 func cors(next http.Handler) http.Handler {
@@ -40,6 +41,7 @@ func main() {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
 	gameinit.RegisterRoutes(mux, globalState)
+	trivia.RegisterRoutes(mux)
 
 	handler := cors(mux)
 	if err := http.ListenAndServe(":8080", handler); err != nil {
