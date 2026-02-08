@@ -87,11 +87,13 @@ func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Requ
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		writeError(w, http.StatusBadGateway, "couldn't create connection")
 		return
 	}
 	color := m.AssignColorLocked()
 	player := game.NewPlayer(username, conn, color, code)
 	m.AddPlayerLocked(username, player)
+	writeJSON(w, http.StatusAccepted, struct{}{})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
