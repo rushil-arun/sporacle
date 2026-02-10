@@ -23,7 +23,7 @@ func getFilesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dir := "trivia"
+	dir := "../trivia"
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		// If directory doesn't exist or can't be read, return empty list.
@@ -70,7 +70,7 @@ func getKeysHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var filePath string
-	dir := "trivia"
+	dir := "../trivia"
 	for _, c := range candidates {
 		p := filepath.Join(dir, c)
 		var err error

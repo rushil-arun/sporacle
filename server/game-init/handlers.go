@@ -29,7 +29,6 @@ func CreateHandler(globalState *state.GlobalState, w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "title required")
 		return
 	}
-
 	m := globalState.Create(req.Title)
 	if m == nil {
 		writeError(w, http.StatusBadRequest, "Invalid title")
@@ -48,10 +47,8 @@ func GetWSURLHandler(globalState *state.GlobalState, w http.ResponseWriter, r *h
 		return
 	}
 	var req JoinRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
+	req.Code = r.URL.Query().Get("code")
+	req.Username = r.URL.Query().Get("username")
 	if req.Username == "" || req.Code == "" {
 		writeError(w, http.StatusBadRequest, "username and code required")
 		return
@@ -67,33 +64,46 @@ func GetWSURLHandler(globalState *state.GlobalState, w http.ResponseWriter, r *h
 func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("game")
 	username := r.URL.Query().Get("user")
-	if code == "" || username == "" {
-		writeError(w, http.StatusBadRequest, "game and user query params required")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
 		return
 	}
-
+	if code == "" || username == "" {
+		conn.WriteJSON(map[string]string{
+			"type":    "error",
+			"message": "Need to enter a code and a username.",
+		})
+		conn.Close()
+		return
+	}
 	m := globalState.GetGame(code)
 	if m == nil {
-		writeError(w, http.StatusNotFound, "game not found")
+		conn.WriteJSON(map[string]string{
+			"type":    "error",
+			"message": "No game with this code.",
+		})
+		conn.Close()
 		return
 	}
 
 	m.Lock()
 	defer m.Unlock()
+
 	if m.HasPlayerLocked(username) {
-		writeError(w, http.StatusConflict, "username already connected to this game")
+		conn.WriteJSON(map[string]string{
+			"type":    "error",
+			"message": "Username taken in this lobby.",
+		})
+		conn.Close()
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "couldn't create connection")
-		return
-	}
 	color := m.AssignColorLocked()
 	player := game.NewPlayer(username, conn, color, code)
 	m.AddPlayerLocked(username, player)
-	writeJSON(w, http.StatusAccepted, struct{}{})
+	conn.WriteJSON(map[string]string{
+		"type": "success",
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

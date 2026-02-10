@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 
 	gameinit "server/game-init"
 	state "server/state"
@@ -44,7 +47,15 @@ func main() {
 	trivia.RegisterRoutes(mux)
 
 	handler := cors(mux)
-	if err := http.ListenAndServe(":8080", handler); err != nil {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file, assuming environment variables are set externally")
+		return
+	}
+
+	listen := os.Getenv("SERVER_BASE_URL")
+
+	if err := http.ListenAndServe(listen, handler); err != nil {
 		log.Fatal(err)
 	}
 }

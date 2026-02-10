@@ -101,7 +101,7 @@ func TestGetWSURLHandler_MethodNotAllowed(t *testing.T) {
 
 func TestGetWSURLHandler_InvalidBody(t *testing.T) {
 	globalState := state.NewGlobalState()
-	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader([]byte("not json")))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=&code=", nil)
 	rec := httptest.NewRecorder()
 	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -111,15 +111,13 @@ func TestGetWSURLHandler_InvalidBody(t *testing.T) {
 
 func TestGetWSURLHandler_MissingFields(t *testing.T) {
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(map[string]string{"username": "LeBron"}) // missing code
-	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=LeBron", nil) // missing code
 	rec := httptest.NewRecorder()
 	gameinit.GetWSURLHandler(globalState, rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("GetWSURLHandler missing code: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	body2, _ := json.Marshal(map[string]string{"code": "ABC123"}) // missing username
-	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body2))
+	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url?code=ABC123", nil) // missing username
 	rec2 := httptest.NewRecorder()
 	gameinit.GetWSURLHandler(globalState, rec2, req2)
 	if rec2.Code != http.StatusBadRequest {
@@ -129,8 +127,7 @@ func TestGetWSURLHandler_MissingFields(t *testing.T) {
 
 func TestGetWSURLHandler_Success(t *testing.T) {
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.JoinRequest{Username: "bob", Code: "JOIN3"})
-	req := httptest.NewRequest(http.MethodGet, "/get-ws-url", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=bob&code=JOIN3", nil)
 	req.Host = "test.local"
 	rec := httptest.NewRecorder()
 	gameinit.GetWSURLHandler(globalState, rec, req)
@@ -165,11 +162,25 @@ func TestConnect_MissingParams(t *testing.T) {
 
 func TestConnect_GameNotFound(t *testing.T) {
 	globalState := state.NewGlobalState()
-	req := httptest.NewRequest(http.MethodGet, "/ws?game=NOSUCH&user=alice", nil)
-	rec := httptest.NewRecorder()
-	gameinit.Connect(globalState, rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("Connect game not found: status = %d, want %d", rec.Code, http.StatusNotFound)
+	mux := http.NewServeMux()
+	gameinit.RegisterRoutes(mux, globalState)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?game=NOSUCH&user=alice"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial: %v", err)
+	}
+	defer conn.Close()
+
+	var msg map[string]string
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read json: %v", err)
+	}
+	expected := "No game with this code."
+	if msg["type"] != "error" || msg["message"] != expected {
+		t.Errorf("Connect game not found: got = %+v, want type=error message=\"%s\"", msg, expected)
 	}
 }
 
@@ -189,12 +200,25 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	fakePlayer := game.NewPlayer("LeBron", nil, m.AssignColor(), code)
 	m.AddPlayer("LeBron", fakePlayer)
 
-	req := httptest.NewRequest(http.MethodGet, "/ws?game="+code+"&user=LeBron", nil)
-	rec := httptest.NewRecorder()
-	gameinit.Connect(globalState, rec, req)
+	mux := http.NewServeMux()
+	gameinit.RegisterRoutes(mux, globalState)
+	server := httptest.NewServer(mux)
+	defer server.Close()
 
-	if rec.Code != http.StatusConflict {
-		t.Errorf("Connect username already connected: status = %d, want %d", rec.Code, http.StatusConflict)
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?game=" + code + "&user=LeBron"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial: %v", err)
+	}
+	defer conn.Close()
+
+	var msg map[string]string
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read json: %v", err)
+	}
+	expected := "Username taken in this lobby."
+	if msg["type"] != "error" || msg["message"] != expected {
+		t.Errorf("Connect username already connected: got = %+v, want type=error message=\"%s\"", msg, expected)
 	}
 }
 
@@ -227,42 +251,6 @@ func TestConnect_FirstConnection(t *testing.T) {
 	gameM := globalState.GetGame(code)
 	if gameM == nil || !gameM.HasPlayer(user) {
 		t.Errorf("expected %s to be added to game after Connect", user)
-	}
-}
-
-func TestConnect_DuplicateUsernameRejected(t *testing.T) {
-	saved := state.TriviaBasePath
-	state.TriviaBasePath = "../../../trivia"
-	defer func() { state.TriviaBasePath = saved }()
-
-	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals")
-	if m == nil {
-		t.Fatal("Create failed")
-	}
-	code := m.Code
-
-	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
-	server := httptest.NewServer(mux)
-	defer server.Close()
-
-	user := "LeBron"
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+
-		strings.TrimPrefix(server.URL, "http")+"/ws?game="+
-		code+"&user="+user, nil)
-	if err != nil {
-		t.Fatalf("WebSocket dial: %v", err)
-	}
-	defer conn.Close()
-
-	// Second connection with same username for same game must be rejected (409).
-	dupReq := httptest.NewRequest(http.MethodGet, "/ws?game="+code+"&user="+user, nil)
-	dupRec := httptest.NewRecorder()
-	mux.ServeHTTP(dupRec, dupReq)
-	if dupRec.Code != http.StatusConflict {
-		t.Errorf("second Connect with same user: status = %d, want %d"+
-			"(username already connected)", dupRec.Code, http.StatusConflict)
 	}
 }
 
@@ -318,7 +306,7 @@ func TestRegisterRoutes(t *testing.T) {
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("RegisterRoutes /create-game: status = %d, want 405", rec.Code)
 	}
-	// get-ws-url with empty body returns 400 (invalid request body)
+	// get-ws-url with missing query params returns 400
 	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url", nil)
 	rec2 := httptest.NewRecorder()
 	mux.ServeHTTP(rec2, req2)
