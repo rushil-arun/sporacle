@@ -1,5 +1,5 @@
-# Sporcle
-A multi-player clone of Sporcle.
+# Sporacle
+A multi-player trivia game where you prove to your friends that you are an oracle.
 
 ## About
 
