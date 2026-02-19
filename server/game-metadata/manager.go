@@ -20,8 +20,9 @@ type Manager struct {
 	Players         map[string]*Player  // maps player usernames to player objects
 	Board           map[string]*Player  // category item -> player who claimed it (nil if unclaimed)
 	Colors          map[string]struct{} // set of assigned colors
-	Time            *time.Ticker        // seconds remaining (60 until start, then 180)
+	Time            int                 // seconds remaining (60 until start, then 180)
 	InboundRequests chan PlayerRequest
+	GameStarted     bool
 	mu              sync.RWMutex
 }
 
@@ -34,7 +35,8 @@ func NewManager(title, code string) *Manager {
 		Players:         make(map[string]*Player),
 		Board:           make(map[string]*Player),
 		Colors:          make(map[string]struct{}),
-		Time:            time.NewTicker(1 * LOBBY_TIME),
+		Time:            60,
+		GameStarted:     false,
 		InboundRequests: make(chan PlayerRequest, 256),
 	}
 }
@@ -113,5 +115,75 @@ func (m *Manager) AddPlayerLocked(username string, p *Player) {
 }
 
 func (m *Manager) Run() {
+	m.StartRoutines()
+	timer := time.NewTicker(1 * LOBBY_TIME)
+	for {
+		select {
+		case <-timer.C:
+			m.Time--
+			if m.Time < 0 && !m.GameStarted {
+				m.Time = GAME_TIME
+				timer = time.NewTicker(1 * GAME_TIME)
+				m.GameStarted = true
+				m.BroadcastStartGame()
+			}
+			m.BroadcastTime()
+		case event, ok := <-m.InboundRequests:
+			if !ok || event.Code != m.Code {
+				m.CloseConnections()
+				return
+			}
+			player, playerExists := m.Players[event.Username]
+			if !playerExists {
+				continue
+			}
+			item := event.Item
+			currPlayer, itemExists := m.Board[item]
+			if !itemExists || currPlayer != nil {
+				continue
+			}
+			m.Board[item] = player
+			m.BroadcastState()
+		}
+	}
+}
 
+func (m *Manager) StartRoutines() {
+	for _, p := range m.Players {
+		go p.Read(m)
+		go p.Write()
+	}
+}
+
+func (m *Manager) BroadcastState() {
+	for _, p := range m.Players {
+		select {
+		case p.OutboundRequests <- GameEvent{Type: "board", State: m.Board}:
+		default:
+		}
+	}
+}
+
+func (m *Manager) BroadcastTime() {
+	for _, p := range m.Players {
+		select {
+		case p.OutboundRequests <- GameEvent{Type: "Time", TimeLeft: m.Time}:
+		default:
+		}
+	}
+}
+
+func (m *Manager) BroadcastStartGame() {
+	for _, p := range m.Players {
+		select {
+		case p.OutboundRequests <- GameEvent{Type: "Start"}:
+		default:
+		}
+	}
+}
+
+func (m *Manager) CloseConnections() {
+	for _, p := range m.Players {
+		p.Connection.Close()
+	}
 }

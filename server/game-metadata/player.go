@@ -10,6 +10,7 @@ type Player struct {
 	Color            string          // hex color, unique within the game
 	Code             string          // game code this player belongs to
 	OutboundRequests chan GameEvent
+	connClosed       chan struct{} // closes when Read() terminates, so Write() knows to terminate
 }
 
 func NewPlayer(username string, connection *websocket.Conn, color string, code string) *Player {
@@ -19,16 +20,21 @@ func NewPlayer(username string, connection *websocket.Conn, color string, code s
 		Color:            color,
 		Code:             code,
 		OutboundRequests: make(chan GameEvent, 64),
+		connClosed:       make(chan struct{}),
 	}
 }
 
 func (p *Player) Write() {
 	for {
-		event, ok := <-p.OutboundRequests
-		if !ok {
-			return
-		}
-		if err := p.Connection.WriteJSON(event); err != nil {
+		select {
+		case event, ok := <-p.OutboundRequests:
+			if !ok {
+				return
+			}
+			if err := p.Connection.WriteJSON(event); err != nil {
+				return
+			}
+		case <-p.connClosed:
 			return
 		}
 	}
@@ -36,6 +42,7 @@ func (p *Player) Write() {
 
 func (p *Player) Read(m *Manager) {
 	defer p.Connection.Close()
+	defer close(p.connClosed)
 	for {
 		var req PlayerRequest
 		if err := p.Connection.ReadJSON(&req); err != nil {
