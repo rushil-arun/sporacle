@@ -11,8 +11,8 @@ var PlayerColors = []string{
 	"#9B5DE5", "#00F5D4", "#F15BB5", "#00BBF9", "#Fee440",
 }
 
-const LOBBY_TIME = 60
-const GAME_TIME = 180
+const LOBBY_TIME = 2
+const GAME_TIME = 2
 
 type Manager struct {
 	Title           string              // name of the game; key into trivia/*.json
@@ -35,7 +35,7 @@ func NewManager(title, code string) *Manager {
 		Players:         make(map[string]*Player),
 		Board:           make(map[string]*Player),
 		Colors:          make(map[string]struct{}),
-		Time:            60,
+		Time:            LOBBY_TIME,
 		GameStarted:     false,
 		InboundRequests: make(chan PlayerRequest, 256),
 	}
@@ -116,19 +116,33 @@ func (m *Manager) AddPlayerLocked(username string, p *Player) {
 
 func (m *Manager) Run() {
 	m.StartRoutines()
-	timer := time.NewTicker(1 * LOBBY_TIME)
+	timer := time.NewTicker(LOBBY_TIME * time.Second)
 	for {
 		select {
 		case <-timer.C:
 			m.Time--
-			if m.Time < 0 && !m.GameStarted {
-				m.Time = GAME_TIME
-				timer = time.NewTicker(1 * GAME_TIME)
-				m.GameStarted = true
-				m.BroadcastStartGame()
+			if m.Time <= 0 {
+				if !m.GameStarted {
+					m.Time = GAME_TIME
+					timer.Stop()
+					timer = time.NewTicker(GAME_TIME * time.Second)
+					m.GameStarted = true
+					m.BroadcastStartGame()
+				} else {
+					// TODO: Need to send a winner here
+					m.CloseConnections()
+					return
+				}
+
 			}
 			m.BroadcastTime()
+			if !m.GameStarted {
+				m.BroadcastPlayers()
+			}
 		case event, ok := <-m.InboundRequests:
+			if !m.GameStarted {
+				continue
+			}
 			if !ok || event.Code != m.Code {
 				m.CloseConnections()
 				return
@@ -177,6 +191,15 @@ func (m *Manager) BroadcastStartGame() {
 	for _, p := range m.Players {
 		select {
 		case p.OutboundRequests <- GameEvent{Type: "Start"}:
+		default:
+		}
+	}
+}
+
+func (m *Manager) BroadcastPlayers() {
+	for _, p := range m.Players {
+		select {
+		case p.OutboundRequests <- GameEvent{Type: "Players", Players: m.Players}:
 		default:
 		}
 	}

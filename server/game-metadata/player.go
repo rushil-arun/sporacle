@@ -5,12 +5,17 @@ import (
 )
 
 type Player struct {
-	Username         string          // identifies the player
-	Connection       *websocket.Conn // WebSocket connection to the server (e.g. *websocket.Conn)
-	Color            string          // hex color, unique within the game
-	Code             string          // game code this player belongs to
-	OutboundRequests chan GameEvent
-	connClosed       chan struct{} // closes when Read() terminates, so Write() knows to terminate
+	Username         string          `json:"username"` // identifies the player
+	Connection       *websocket.Conn `json:"-"`        // WebSocket connection to the server (e.g. *websocket.Conn)
+	Color            string          `json:"color"`    // hex color, unique within the game
+	Code             string          `json:"code"`     // game code this player belongs to
+	OutboundRequests chan GameEvent  `json:"-"`
+	connClosed       chan struct{}   // closes when Read() terminates, so Write() knows to terminate
+}
+
+type PlayerMetaData struct {
+	Username string
+	Color    string
 }
 
 func NewPlayer(username string, connection *websocket.Conn, color string, code string) *Player {
@@ -25,6 +30,7 @@ func NewPlayer(username string, connection *websocket.Conn, color string, code s
 }
 
 func (p *Player) Write() {
+	defer p.Connection.Close()
 	for {
 		select {
 		case event, ok := <-p.OutboundRequests:
@@ -48,9 +54,16 @@ func (p *Player) Read(m *Manager) {
 		if err := p.Connection.ReadJSON(&req); err != nil {
 			return
 		}
+
 		if req.Username == "" || req.Code == "" || req.Item == "" {
 			continue
 		}
+
+		_, playerExists := m.Players[req.Username]
+		if (req.Code != m.Code) || !playerExists {
+			continue
+		}
+
 		select {
 		case m.InboundRequests <- req:
 		default: // don't block the channel
