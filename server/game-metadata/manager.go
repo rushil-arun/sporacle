@@ -11,7 +11,7 @@ var PlayerColors = []string{
 	"#9B5DE5", "#00F5D4", "#F15BB5", "#00BBF9", "#Fee440",
 }
 
-const LOBBY_TIME = 2
+const LOBBY_TIME = 100
 const GAME_TIME = 2
 
 type Manager struct {

@@ -78,8 +78,8 @@ export const Join: React.FC = () => {
     const baseWsUrl = await getWsUrl(username, fullCode);
     if (baseWsUrl) {
       setCode(fullCode);
-
-      const fullWsUrl = `${baseWsUrl}?game=${fullCode}&user=${encodeURIComponent(username)}`;
+      
+      const fullWsUrl = `${(baseWsUrl)}`;
       setWsUrl(fullWsUrl);
 
       try {
@@ -88,9 +88,11 @@ export const Join: React.FC = () => {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            console.log(data)
             if (data.type === 'error') {
               setError(data.message);
             } else if (data.type === 'success') {
+              ws.onmessage = null
               setWs(ws);
               navigate('/lobby');
             }
