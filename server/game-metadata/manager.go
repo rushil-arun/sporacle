@@ -112,11 +112,12 @@ func (m *Manager) AddPlayerLocked(username string, p *Player) {
 	}
 	m.Players[username] = p
 	m.Colors[p.Color] = struct{}{}
+	go p.Read(m)
+	go p.Write()
 }
 
 func (m *Manager) Run() {
-	m.StartRoutines()
-	timer := time.NewTicker(LOBBY_TIME * time.Second)
+	timer := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-timer.C:
@@ -125,7 +126,7 @@ func (m *Manager) Run() {
 				if !m.GameStarted {
 					m.Time = GAME_TIME
 					timer.Stop()
-					timer = time.NewTicker(GAME_TIME * time.Second)
+					timer = time.NewTicker(1 * time.Second)
 					m.GameStarted = true
 					m.BroadcastStartGame()
 				} else {
@@ -139,6 +140,7 @@ func (m *Manager) Run() {
 			if !m.GameStarted {
 				m.BroadcastPlayers()
 			}
+
 		case event, ok := <-m.InboundRequests:
 			if !m.GameStarted {
 				continue
@@ -159,13 +161,6 @@ func (m *Manager) Run() {
 			m.Board[item] = player
 			m.BroadcastState()
 		}
-	}
-}
-
-func (m *Manager) StartRoutines() {
-	for _, p := range m.Players {
-		go p.Read(m)
-		go p.Write()
 	}
 }
 

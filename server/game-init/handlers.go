@@ -102,6 +102,7 @@ func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Requ
 
 	color := m.AssignColorLocked()
 	player := game.NewPlayer(username, conn, color, code)
+	// this will start routines for the player
 	m.AddPlayerLocked(username, player)
 	conn.WriteJSON(map[string]string{
 		"type": "success",
