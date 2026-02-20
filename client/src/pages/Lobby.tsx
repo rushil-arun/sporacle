@@ -130,13 +130,14 @@ export const Lobby: React.FC = () => {
                 Starting in
               </span>
               <div className="flex items-baseline gap-1">
-                <span className="font-display text-3xl font-bold text-foreground tabular-nums">
+                <span className="font-display text-3xl font-bold text-foreground tabular-nums" style={{color: (timeLeft !== null && timeLeft <= 3) ? "red" : ""}}>
                   {timeLeft}
                 </span>
                 <span className="text-sm text-muted-foreground">s</span>
               </div>
+              
               <Progress
-                value={timeLeft !== null ? 100 - ((timeLeft / initialTime) * 100) : 0}
+                value={(timeLeft !== null && initialTime != 0) ? 100 - ((timeLeft / initialTime) * 100) : 0}
                 dir="rtl"
                 className="h-1.5 w-full bg-muted/50"
               />
