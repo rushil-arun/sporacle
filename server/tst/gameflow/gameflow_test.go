@@ -202,7 +202,19 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 	if !found {
 		t.Fatalf("Did not recieve a message of type board in %d iters", iters)
 	}
-	// Invalid request should have been skipped; we got Denver not something from invalid
+	// Invalid request should have been skipped; we got Oklahoma City not something from invalid
+	stateVal, ok := got["State"]
+	if !ok {
+		t.Fatal("no State in board event")
+	}
+	stateMap, ok := stateVal.(map[string]interface{})
+	if !ok {
+		t.Fatalf("State is %T, want map", stateVal)
+	}
+	sac, ok := stateMap["Oklahoma City"]
+	if !ok || sac == nil {
+		t.Errorf("Oklahoma City not in State or nil: %v", stateMap["Oklahoma City"])
+	}
 }
 
 func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
