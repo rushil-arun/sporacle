@@ -5,14 +5,21 @@ import (
 	"time"
 )
 
-// Predefined hex colors for players; first unused one is assigned.
 var PlayerColors = []string{
-	"#E63946", "#F4A261", "#2A9D8F", "#264653", "#E9C46A",
-	"#9B5DE5", "#00F5D4", "#F15BB5", "#00BBF9", "#Fee440",
+	"356 75% 57%",  // #E63946
+	"27 87% 67%",   // #F4A261
+	"174 58% 39%",  // #2A9D8F
+	"198 37% 24%",  // #264653
+	"43 74% 66%",   // #E9C46A
+	"272 72% 57%",  // #9B5DE5
+	"171 100% 48%", // #00F5D4
+	"322 84% 64%",  // #F15BB5
+	"201 100% 49%", // #00BBF9
+	"51 99% 62%",   // #Fee440
 }
 
-const LOBBY_TIME = 10
-const GAME_TIME = 10
+const LOBBY_TIME = 2
+const GAME_TIME = 2
 
 type Manager struct {
 	Title           string              // name of the game; key into trivia/*.json
@@ -137,6 +144,7 @@ func (m *Manager) Run() {
 
 			}
 			m.BroadcastTime()
+			m.BroadcastState()
 			if !m.GameStarted {
 				m.BroadcastPlayers()
 			}
@@ -167,7 +175,7 @@ func (m *Manager) Run() {
 func (m *Manager) BroadcastState() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "board", State: m.Board}:
+		case p.OutboundRequests <- GameEvent{Type: "Board", State: m.Board}:
 		default:
 		}
 	}

@@ -100,7 +100,7 @@ func TestWrite_SendsEventsToWebSocket(t *testing.T) {
 		if err := conn.ReadJSON(&got); err != nil {
 			t.Fatalf("ReadJSON response: %v", err)
 		}
-		if got["Type"] == "board" {
+		if got["Type"] == "Board" {
 			return
 		}
 	}
@@ -166,7 +166,7 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 		if err := conn.ReadJSON(&got); err != nil {
 			t.Fatalf("ReadJSON response: %v", err)
 		}
-		if got["Type"] == "board" {
+		if got["Type"] == "Board" {
 			found = true
 			break
 		}
@@ -194,7 +194,7 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 		if err := conn.ReadJSON(&got); err != nil {
 			t.Fatalf("ReadJSON response: %v", err)
 		}
-		if got["Type"] == "board" {
+		if got["Type"] == "Board" {
 			found = true
 			break
 		}
@@ -285,7 +285,7 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 		if err := conn.ReadJSON(&boardMsg); err != nil {
 			t.Fatalf("ReadJSON board: %v", err)
 		}
-		if boardMsg["Type"] == "board" {
+		if boardMsg["Type"] == "Board" {
 			found = true
 			break
 		}
