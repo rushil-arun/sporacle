@@ -2,6 +2,7 @@ package game
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -196,11 +197,21 @@ func (m *Manager) Run() {
 			}
 			item := event.Item
 
-			currPlayer, itemExists := m.Board[item]
+			var boardKey string
+			var currPlayer *Player
+			itemExists := false
+			for k, v := range m.Board {
+				if strings.EqualFold(k, item) {
+					boardKey = k
+					currPlayer = v
+					itemExists = true
+					break
+				}
+			}
 			if !itemExists || currPlayer != nil {
 				continue
 			}
-			m.Board[item] = player
+			m.Board[boardKey] = player
 			m.Correct[player] += 1
 			m.SquaresTaken += 1
 			if m.SquaresTaken == len(m.Board) {
