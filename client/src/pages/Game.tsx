@@ -64,14 +64,8 @@ export const Game: React.FC = () => {
             return updated;
           });
         } else if (message.Type === 'Leaderboard') {
-          const message = JSON.parse(event.data)
-          const entries = message.Leaderboard
-          var podium: LeaderboardEntry[] = []
-          entries.forEach((e: LeaderboardEntry) => {
-            podium.push({ username: e.username, color: e.color, correct: e.correct})
-          })
-          console.log(entries)
-          setPodium(entries);
+          setPodium(message.Leaderboard as LeaderboardEntry[]);
+          console.log(message.Leaderboard)
           const request = { username : username, code: code, Item: "GAME_OVER"}
           if (ws?.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify(request));

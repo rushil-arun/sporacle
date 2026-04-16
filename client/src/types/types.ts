@@ -1,1 +1,1 @@
-export type LeaderboardEntry = { username : string, color : string, correct : number}
+export type LeaderboardEntry = { username: string, color: string, correct: number, rank: number, isTied: boolean }

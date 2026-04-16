@@ -40,6 +40,8 @@ type LeaderboardEntry struct {
 	Username string `json:"username"`
 	Color    string `json:"color"`
 	Count    int    `json:"correct"`
+	Rank     int    `json:"rank"`
+	IsTied   bool   `json:"isTied"`
 }
 
 // NewManager creates a Manager with the given title and code. Time is set to 60,
@@ -268,8 +270,45 @@ func (m *Manager) BroadcastWinner() {
 	sort.Slice(lst, func(i, j int) bool {
 		return lst[i].Count > lst[j].Count
 	})
-	if len(lst) > 3 {
-		lst = lst[:3]
+	// Include all tied for 1st; extend to 2nd then 3rd until at least 3 podium spots are filled.
+	{
+		result := make([]LeaderboardEntry, 0, len(lst))
+		i := 0
+		for rank := 1; rank <= 3 && i < len(lst); rank++ {
+			scoreAtRank := lst[i].Count
+			j := i
+			for j < len(lst) && lst[j].Count == scoreAtRank {
+				j++
+			}
+			result = append(result, lst[i:j]...)
+			i = j
+			if len(result) >= 3 {
+				break
+			}
+		}
+		lst = result
+	}
+
+	// Assign ranks: same score → same rank
+	for i := range lst {
+		if i == 0 {
+			lst[i].Rank = 1
+		} else if lst[i].Count == lst[i-1].Count {
+			lst[i].Rank = lst[i-1].Rank
+		} else {
+			lst[i].Rank = i + 1
+		}
+	}
+
+	// Mark entries that share a rank as tied
+	rankCounts := make(map[int]int)
+	for _, e := range lst {
+		rankCounts[e.Rank]++
+	}
+	for i := range lst {
+		if rankCounts[lst[i].Rank] > 1 {
+			lst[i].IsTied = true
+		}
 	}
 
 	for _, p := range m.Players {

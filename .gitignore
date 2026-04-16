@@ -1,3 +1,4 @@
-instructions
+instructions/
 .env
 CLAUDE.md
+claude/
