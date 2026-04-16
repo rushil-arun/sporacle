@@ -27,7 +27,6 @@ export const useCreateGame = () => {
       return response.data.code;
     } catch (err) {
       const axiosError = err as AxiosError<CreateGameError>;
-      console.log(axiosError.response?.data.error)
       const errorMessage =
         axiosError.response?.data?.error ||
         'Failed to create game';

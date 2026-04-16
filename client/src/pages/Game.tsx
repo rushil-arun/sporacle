@@ -65,7 +65,6 @@ export const Game: React.FC = () => {
           });
         } else if (message.Type === 'Leaderboard') {
           setPodium(message.Leaderboard as LeaderboardEntry[]);
-          console.log(message.Leaderboard)
           const request = { username : username, code: code, Item: "GAME_OVER"}
           if (ws?.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify(request));

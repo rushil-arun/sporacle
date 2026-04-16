@@ -9,7 +9,6 @@ import type { LeaderboardEntry } from "@/types/types";
 const Podium = () => {
   const navigate = useNavigate();
   const { podium, title } = useGame()
-  console.log(podium)
 
   // Compute rank from sorted scores — resilient to missing backend rank field
   const topScore = podium[0]?.correct ?? -1;
@@ -34,7 +33,6 @@ const Podium = () => {
 
   // Use classic 2nd–1st–3rd visual hierarchy only for exactly 3 players with distinct ranks.
   // For all other sizes, display in ranked order.
-  console.log(podium)
   const useClassicLayout = podium.length === 3
     && getEffectiveRank(podium[0]) !== getEffectiveRank(podium[1]);
   const podiumOrder = useClassicLayout
