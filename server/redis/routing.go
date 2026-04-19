@@ -12,13 +12,12 @@ func RegisterServer(ctx context.Context, rdb *redis.Client, serverAddr string) e
 	return rdb.ZAddNX(ctx, ServerLoadZSet, redis.Z{Score: 0, Member: serverAddr}).Err()
 }
 
-// assignGameScript atomically picks the least-loaded server, increments its score,
+// assignGameScript atomically picks the least-loaded server,
 // and stores code → server in game_servers. Returns the chosen server address.
 var assignGameScript = redis.NewScript(`
 local servers = redis.call('ZRANGE', KEYS[1], 0, 0)
 if #servers == 0 then return redis.error_reply('no servers registered') end
 local addr = servers[1]
-redis.call('ZINCRBY', KEYS[1], 1, addr)
 redis.call('HSET', KEYS[2], ARGV[1], addr)
 return addr
 `)
