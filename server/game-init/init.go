@@ -19,7 +19,7 @@ func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState, rdb *red
 		GetWSURLHandler(globalState, rdb, w, r)
 	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		Connect(globalState, w, r)
+		Connect(globalState, rdb, serverAddr, w, r)
 	})
 	mux.HandleFunc("/internal/create-game", func(w http.ResponseWriter, r *http.Request) {
 		InternalCreateHandler(globalState, serverAddr, w, r)

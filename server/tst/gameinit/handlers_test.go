@@ -149,13 +149,13 @@ func TestConnect_MissingParams(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 	rec := httptest.NewRecorder()
-	gameinit.Connect(globalState, rec, req)
+	gameinit.Connect(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Connect no params: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 	req2 := httptest.NewRequest(http.MethodGet, "/ws?game=ABC", nil)
 	rec2 := httptest.NewRecorder()
-	gameinit.Connect(globalState, rec2, req2)
+	gameinit.Connect(globalState, nil, "", rec2, req2)
 	if rec2.Code != http.StatusBadRequest {
 		t.Errorf("Connect missing user: status = %d, want %d", rec2.Code, http.StatusBadRequest)
 	}

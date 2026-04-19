@@ -130,7 +130,9 @@ func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, w http.R
 }
 
 // Connect handles GET /ws: upgrades to WebSocket and adds the player to the game.
-func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
+// When rdb is non-nil it increments the server's load score on connect and decrements it
+// when the player's connection closes.
+func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr string, w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("game")
 	username := r.URL.Query().Get("user")
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -184,6 +186,14 @@ func Connect(globalState *state.GlobalState, w http.ResponseWriter, r *http.Requ
 		"type":    "success",
 		"message": m.Title,
 	})
+
+	if rdb != nil {
+		rediscoord.IncrLoad(context.Background(), rdb, serverAddr)
+		go func() {
+			<-player.ConnClosed()
+			rediscoord.DecrLoad(context.Background(), rdb, serverAddr)
+		}()
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

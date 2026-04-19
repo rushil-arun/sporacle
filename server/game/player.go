@@ -18,6 +18,9 @@ type PlayerMetaData struct {
 	Color    string
 }
 
+// ConnClosed returns a channel that is closed when the player's Read loop exits.
+func (p *Player) ConnClosed() <-chan struct{} { return p.connClosed }
+
 func NewPlayer(username string, connection *websocket.Conn, color string, code string) *Player {
 	return &Player{
 		Username:         username,
