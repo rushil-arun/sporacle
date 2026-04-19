@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 
 	gameinit "server/game-init"
+	rediscoord "server/redis"
 	state "server/state"
 	trivia "server/trivia"
 )
@@ -41,21 +46,55 @@ func cors(next http.Handler) http.Handler {
 func main() {
 	fmt.Println("Welcome to Sporcle!")
 
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
+	listen := os.Getenv("SERVER_BASE_URL")
+	serverAddr := os.Getenv("SERVER_ADDR")
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+
+	rdb, err := rediscoord.NewClient(redisAddr)
+	if err != nil {
+		log.Fatalf("redis connect: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := rediscoord.RegisterServer(ctx, rdb, serverAddr); err != nil {
+		log.Fatalf("register server: %v", err)
+	}
+	log.Printf("Registered as %s", serverAddr)
+
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
 	gameinit.RegisterRoutes(mux, globalState)
 	trivia.RegisterRoutes(mux)
 
-	handler := cors(mux)
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file, assuming environment variables are set externally")
-		return
-	}
+	srv := &http.Server{Addr: listen, Handler: cors(mux)}
 
-	listen := os.Getenv("SERVER_BASE_URL")
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	if err := http.ListenAndServe(listen, handler); err != nil {
-		log.Fatal(err)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	log.Printf("Listening on %s", listen)
+
+	<-sigCh
+	log.Println("Shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	srv.Shutdown(shutdownCtx)
+
+	if err := rediscoord.DeregisterServer(ctx, rdb, serverAddr); err != nil {
+		log.Printf("deregister: %v", err)
 	}
+	rdb.Close()
+	log.Println("Goodbye.")
 }
