@@ -10,6 +10,8 @@ import (
 // InternalCreateHandler handles POST /internal/create-game.
 // It creates the game on this server without consulting Redis for routing,
 // so it is safe to call from another server's forwarding logic without looping.
+// If the request body includes a non-empty "code" field, that code is used directly;
+// otherwise a new code is generated.
 func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -28,16 +30,31 @@ func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w 
 		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
 		return
 	}
-	m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
-	if m == nil {
-		writeError(w, http.StatusBadRequest, "Invalid title")
-		return
+
+	var code string
+	if req.Code != "" {
+		m := globalState.CreateWithCode(req.Title, req.Code, req.LobbyTime, req.GameTime)
+		if m == nil {
+			writeError(w, http.StatusBadRequest, "Invalid title")
+			return
+		}
+		code = m.Code
+		go func() {
+			defer globalState.RemoveGame(m.Code)
+			m.Run()
+		}()
+	} else {
+		m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
+		if m == nil {
+			writeError(w, http.StatusBadRequest, "Invalid title")
+			return
+		}
+		code = m.Code
+		go func() {
+			defer globalState.RemoveGame(m.Code)
+			m.Run()
+		}()
 	}
 
-	go func() {
-		defer globalState.RemoveGame(m.Code)
-		m.Run()
-	}()
-
-	writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code, ServerAddr: serverAddr})
+	writeJSON(w, http.StatusOK, CreateResponse{Code: code, ServerAddr: serverAddr})
 }

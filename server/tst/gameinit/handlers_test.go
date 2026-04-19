@@ -19,7 +19,7 @@ func TestCreateHandler_MethodNotAllowed(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/create-game", nil)
 	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
+	gameinit.CreateHandler(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("CreateHandler GET: status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 	}
@@ -29,7 +29,7 @@ func TestCreateHandler_InvalidBody(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader([]byte("not json")))
 	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
+	gameinit.CreateHandler(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("CreateHandler invalid body: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
@@ -40,7 +40,7 @@ func TestCreateHandler_MissingTitle(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{}) // missing title
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
+	gameinit.CreateHandler(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("CreateHandler missing title: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
@@ -55,7 +55,7 @@ func TestCreateHandler_InvalidTitle(t *testing.T) {
 	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
+	gameinit.CreateHandler(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("CreateHandler invalid title: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
@@ -70,7 +70,7 @@ func TestCreateHandler_Success(t *testing.T) {
 	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.CreateHandler(globalState, rec, req)
+	gameinit.CreateHandler(globalState, nil, "", rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("CreateHandler success: status = %d, want 200", rec.Code)
 	}

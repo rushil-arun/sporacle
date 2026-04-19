@@ -1,10 +1,13 @@
 package gameinit
 
-// CreateRequest is the JSON body for /create-game.
+// CreateRequest is the JSON body for /create-game and /internal/create-game.
 type CreateRequest struct {
 	Title     string `json:"title"`
 	LobbyTime int    `json:"lobbyTime"`
 	GameTime  int    `json:"gameTime"`
+	// Code is set when a receiving server forwards the request to ensure the game
+	// is created with the code already registered in Redis.
+	Code string `json:"code,omitempty"`
 }
 
 type CreateResponse struct {

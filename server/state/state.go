@@ -41,6 +41,40 @@ func (s *GlobalState) generateCode() string {
 	}
 }
 
+// GenerateCode returns a unique 6-character code not currently in use locally.
+// It does not reserve the code in the games map.
+func (s *GlobalState) GenerateCode() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for {
+		b := make([]byte, 6)
+		for i := range b {
+			b[i] = codeChars[rand.Intn(len(codeChars))]
+		}
+		code := string(b)
+		if s.games[code] == nil {
+			return code
+		}
+	}
+}
+
+// CreateWithCode creates a game with the provided code rather than generating one.
+// Returns nil if the title is invalid. Does not check whether the code is already in use.
+func (s *GlobalState) CreateWithCode(title, code string, lobbyTime, gameTime int) *game.Manager {
+	items := loadTriviaItems(title)
+	if items == nil {
+		return nil
+	}
+	m := game.NewManager(title, code, lobbyTime, gameTime)
+	for _, item := range items {
+		m.Board[item] = nil
+	}
+	s.mu.Lock()
+	s.games[code] = m
+	s.mu.Unlock()
+	return m
+}
+
 // GetGame returns the Manager for the given code, or nil. Caller holds read lock.
 func (s *GlobalState) GetGame(code string) *game.Manager {
 	s.mu.RLock()

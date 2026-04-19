@@ -1,22 +1,27 @@
 package gameinit
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	game "server/game"
+	rediscoord "server/redis"
 	state "server/state"
 
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// Create handles POST /create-game: creates a game and returns wss URL.
-func CreateHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
+// CreateHandler handles POST /create-game.
+// When rdb is nil it runs in single-server mode (original behaviour).
+// When rdb is non-nil it uses Redis to route the game to the least-loaded server.
+func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -35,19 +40,60 @@ func CreateHandler(globalState *state.GlobalState, w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
 		return
 	}
-	m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
-	if m == nil {
-		writeError(w, http.StatusBadRequest, "Invalid title")
+
+	if rdb == nil {
+		// Single-server mode: original behaviour.
+		m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
+		if m == nil {
+			writeError(w, http.StatusBadRequest, "Invalid title")
+			return
+		}
+		go func() {
+			defer globalState.RemoveGame(m.Code)
+			m.Run()
+		}()
+		writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code, ServerAddr: r.Host})
 		return
 	}
 
-	go func() {
-		defer globalState.RemoveGame(m.Code)
+	// Multi-server mode: generate a code, ask Redis which server should host it,
+	// then either create locally or forward to the chosen server.
+	ctx := r.Context()
+	code := globalState.GenerateCode()
 
-		m.Run()
-	}()
+	chosenServer, err := rediscoord.AssignGame(ctx, rdb, code)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "routing unavailable")
+		return
+	}
 
-	writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code, ServerAddr: r.Host})
+	if chosenServer == serverAddr {
+		m := globalState.CreateWithCode(req.Title, code, req.LobbyTime, req.GameTime)
+		if m == nil {
+			rediscoord.RemoveGame(context.Background(), rdb, code)
+			writeError(w, http.StatusBadRequest, "Invalid title")
+			return
+		}
+		go func() {
+			defer func() {
+				globalState.RemoveGame(m.Code)
+				rediscoord.RemoveGame(context.Background(), rdb, m.Code)
+			}()
+			m.Run()
+		}()
+		writeJSON(w, http.StatusOK, CreateResponse{Code: code, ServerAddr: serverAddr})
+		return
+	}
+
+	// Forward to the chosen server, passing the pre-assigned code.
+	req.Code = code
+	resp, err := ForwardCreate(ctx, chosenServer, req)
+	if err != nil {
+		rediscoord.RemoveGame(context.Background(), rdb, code)
+		writeError(w, http.StatusBadGateway, "failed to reach target server")
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 /*
