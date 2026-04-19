@@ -164,7 +164,7 @@ func TestConnect_MissingParams(t *testing.T) {
 func TestConnect_GameNotFound(t *testing.T) {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -202,7 +202,7 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	m.AddPlayer("LeBron", fakePlayer)
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -236,7 +236,7 @@ func TestConnect_FirstConnection(t *testing.T) {
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -268,7 +268,7 @@ func TestConnect_TwoDifferentUsers(t *testing.T) {
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -299,7 +299,7 @@ func TestConnect_TwoDifferentUsers(t *testing.T) {
 func TestRegisterRoutes(t *testing.T) {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	// Verify routes respond: create-game with GET returns 405
 	req := httptest.NewRequest(http.MethodGet, "/create-game", nil)
 	rec := httptest.NewRecorder()

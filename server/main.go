@@ -70,7 +70,7 @@ func main() {
 
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, rdb, serverAddr)
 	trivia.RegisterRoutes(mux)
 
 	srv := &http.Server{Addr: listen, Handler: cors(mux)}

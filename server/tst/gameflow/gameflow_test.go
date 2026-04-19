@@ -32,7 +32,7 @@ func setupGameWithConn(t *testing.T) (*game.Manager, string, *websocket.Conn, *g
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
@@ -263,7 +263,7 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState)
+	gameinit.RegisterRoutes(mux, globalState, nil, "")
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
