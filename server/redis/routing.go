@@ -36,6 +36,41 @@ func AssignGame(ctx context.Context, rdb *redis.Client, code string) (string, er
 	return res, nil
 }
 
+// LookupGame returns the server address hosting the given game code,
+// or ("", nil) if the code is not found.
+func LookupGame(ctx context.Context, rdb *redis.Client, code string) (string, error) {
+	addr, err := rdb.HGet(ctx, GameServersHash, code).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	return addr, err
+}
+
+// RemoveGame deletes the code→server mapping from game_servers.
+func RemoveGame(ctx context.Context, rdb *redis.Client, code string) error {
+	return rdb.HDel(ctx, GameServersHash, code).Err()
+}
+
+// IncrLoad increments the player-count score for serverAddr by 1.
+func IncrLoad(ctx context.Context, rdb *redis.Client, serverAddr string) error {
+	return rdb.ZIncrBy(ctx, ServerLoadZSet, 1, serverAddr).Err()
+}
+
+// DecrLoad decrements the player-count score for serverAddr by 1, floored at 0.
+func DecrLoad(ctx context.Context, rdb *redis.Client, serverAddr string) error {
+	score, err := rdb.ZScore(ctx, ServerLoadZSet, serverAddr).Result()
+	if err == redis.Nil {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if score <= 0 {
+		return nil
+	}
+	return rdb.ZIncrBy(ctx, ServerLoadZSet, -1, serverAddr).Err()
+}
+
 // DeregisterServer removes serverAddr from the server_load sorted set and deletes
 // all game_servers entries that point to it.
 func DeregisterServer(ctx context.Context, rdb *redis.Client, serverAddr string) error {
