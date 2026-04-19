@@ -47,7 +47,7 @@ func CreateHandler(globalState *state.GlobalState, w http.ResponseWriter, r *htt
 		m.Run()
 	}()
 
-	writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code})
+	writeJSON(w, http.StatusOK, CreateResponse{Code: m.Code, ServerAddr: r.Host})
 }
 
 /*

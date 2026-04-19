@@ -8,7 +8,8 @@ type CreateRequest struct {
 }
 
 type CreateResponse struct {
-	Code string `json:"code"`
+	Code       string `json:"code"`
+	ServerAddr string `json:"serverAddr"`
 }
 
 // JoinRequest is the JSON body for /join-game.
