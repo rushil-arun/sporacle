@@ -96,10 +96,10 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 	writeJSON(w, http.StatusOK, resp)
 }
 
-/*
-Returns a WS URL for a client trying to join a game.
-*/
-func GetWSURLHandler(globalState *state.GlobalState, w http.ResponseWriter, r *http.Request) {
+// GetWSURLHandler returns a WS URL for a client trying to join a game.
+// When rdb is non-nil it looks up which server hosts the game and returns a URL
+// pointing to that server. When rdb is nil it falls back to single-server mode.
+func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -111,10 +111,21 @@ func GetWSURLHandler(globalState *state.GlobalState, w http.ResponseWriter, r *h
 		writeError(w, http.StatusBadRequest, "username and code required")
 		return
 	}
-	// note that this URL could be invalid (code might not match a game, or username
-	// could be taken).
-	// Since this needs to be checked in Connect(), it won't be checked here.
-	url := buildWSURL(r, req.Code, req.Username)
+
+	if rdb == nil {
+		// Single-server mode: build URL using the current request's host.
+		url := buildWSURL(r, req.Code, req.Username)
+		writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
+		return
+	}
+
+	// Multi-server mode: look up which server hosts this game.
+	serverAddr, err := rediscoord.LookupGame(r.Context(), rdb, req.Code)
+	if err != nil || serverAddr == "" {
+		writeError(w, http.StatusNotFound, "game not found")
+		return
+	}
+	url := buildWSURLForAddr(serverAddr, req.Code, req.Username)
 	writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
 }
 
@@ -185,11 +196,17 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, ErrorResponse{Error: msg})
 }
 
-// buildWSURL returns the wss:// or ws:// URL with game and user query params.
+// buildWSURL returns the wss:// or ws:// URL with game and user query params,
+// using the host from the incoming request.
 func buildWSURL(r *http.Request, code, username string) string {
 	scheme := "ws"
 	if r.TLS != nil {
 		scheme = "wss"
 	}
 	return scheme + "://" + r.Host + "/ws?game=" + code + "&user=" + username
+}
+
+// buildWSURLForAddr builds a ws:// URL pointing at a specific server address.
+func buildWSURLForAddr(serverAddr, code, username string) string {
+	return "ws://" + serverAddr + "/ws?game=" + code + "&user=" + username
 }

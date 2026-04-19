@@ -16,7 +16,7 @@ func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState, rdb *red
 		CreateHandler(globalState, rdb, serverAddr, w, r)
 	})
 	mux.HandleFunc("/get-ws-url", func(w http.ResponseWriter, r *http.Request) {
-		GetWSURLHandler(globalState, w, r)
+		GetWSURLHandler(globalState, rdb, w, r)
 	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		Connect(globalState, w, r)
