@@ -12,7 +12,6 @@ import (
 	test "server/tst"
 )
 
-
 const testServerAddr = "localhost:8080"
 
 func TestInternalCreateHandler_Success(t *testing.T) {
