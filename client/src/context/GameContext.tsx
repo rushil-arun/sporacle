@@ -19,6 +19,8 @@ interface GameContextType {
   setTitle: (t: string) => void;
   timeLeft: number;
   setTimeLeft: (t: any) => void;
+  serverAddr: string;
+  setServerAddr: (addr: string) => void;
   reset: () => void;
 }
 
@@ -33,6 +35,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [podium, setPodium] = useState<LeaderboardEntry[]>([])
   const [title, setTitle] = useState("");
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [serverAddr, setServerAddr] = useState('');
 
   const reset = () => {
     if (ws) {
@@ -44,6 +47,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWsUrl('');
     setPlayerColor('');
     setPodium([]);
+    setServerAddr('');
   };
 
   return (
@@ -65,6 +69,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTitle,
         timeLeft,
         setTimeLeft,
+        serverAddr,
+        setServerAddr,
         reset,
       }}
     >

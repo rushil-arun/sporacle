@@ -1,10 +1,10 @@
 import axios, { AxiosError } from 'axios';
 import { useState } from 'react';
-
-const API_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:8080';
+import { pickRandomServer } from '@/lib/serverPool';
 
 interface CreateGameResponse {
   code: string;
+  serverAddr: string;
 }
 
 interface CreateGameError {
@@ -15,16 +15,20 @@ export const useCreateGame = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createGame = async (title: string, lobbyTime: number, gameTime: number): Promise<string | null> => {
+  const createGame = async (
+    title: string,
+    lobbyTime: number,
+    gameTime: number
+  ): Promise<{ code: string; serverAddr: string } | null> => {
     setLoading(true);
     setError(null);
     try {
       const response = await axios.post<CreateGameResponse>(
-        `${API_BASE_URL}/create-game`,
+        `${pickRandomServer()}/create-game`,
         { title, lobbyTime, gameTime },
         { headers: { 'Content-Type': 'application/json' } }
       );
-      return response.data.code;
+      return { code: response.data.code, serverAddr: response.data.serverAddr };
     } catch (err) {
       const axiosError = err as AxiosError<CreateGameError>;
       const errorMessage =
@@ -60,7 +64,7 @@ export const useGetWsUrl = () => {
     setError(null);
     try {
       const response = await axios.get<GetWsUrlResponse>(
-        `${API_BASE_URL}/get-ws-url`,
+        `${pickRandomServer()}/get-ws-url`,
         {
           params: { "username": username, "code": code },
           headers: { 'Content-Type': 'application/json' },
@@ -92,7 +96,7 @@ export const useTriviaFiles = () => {
     setError(null);
     try {
       const response = await axios.get<string[]>(
-        `${API_BASE_URL}/trivia/files`,
+        `${pickRandomServer()}/trivia/files`,
         { headers: { 'Content-Type': 'application/json' } }
       );
       return response.data;
@@ -118,7 +122,7 @@ export const useTriviaKeys = () => {
     setError(null);
     try {
       const response = await axios.get<string[]>(
-        `${API_BASE_URL}/trivia/keys`,
+        `${pickRandomServer()}/trivia/keys`,
         {
           params: { file },
           headers: { 'Content-Type': 'application/json' },
