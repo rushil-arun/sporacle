@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"server/shared"
 )
 
 var PlayerColors = []string{
@@ -180,7 +182,7 @@ func (m *Manager) Run() {
 			}
 
 		case event, ok := <-m.InboundRequests:
-			if event.Item == "GAME_OVER" && m.Time <= 0 {
+			if event.Item == shared.GameOverSentinel && m.Time <= 0 {
 				m.CloseConnections()
 				return
 			}
@@ -229,7 +231,7 @@ func (m *Manager) Run() {
 func (m *Manager) BroadcastState() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "Board", State: m.Board}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventBoard, State: m.Board}:
 		default:
 		}
 	}
@@ -238,7 +240,7 @@ func (m *Manager) BroadcastState() {
 func (m *Manager) BroadcastTime() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "Time", TimeLeft: m.Time}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventTime, TimeLeft: m.Time}:
 		default:
 		}
 	}
@@ -247,7 +249,7 @@ func (m *Manager) BroadcastTime() {
 func (m *Manager) BroadcastStartGame() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "Start"}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventStart}:
 		default:
 		}
 	}
@@ -256,7 +258,7 @@ func (m *Manager) BroadcastStartGame() {
 func (m *Manager) BroadcastPlayers() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "Players", Players: m.Players}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventPlayers, Players: m.Players}:
 		default:
 		}
 	}
@@ -313,7 +315,7 @@ func (m *Manager) BroadcastWinner() {
 
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: "Leaderboard", Leaderboard: lst}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventLeaderboard, Leaderboard: lst}:
 		default:
 		}
 	}

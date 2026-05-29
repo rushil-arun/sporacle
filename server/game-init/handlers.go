@@ -8,6 +8,7 @@ import (
 
 	game "server/game"
 	rediscoord "server/redis"
+	"server/shared"
 	state "server/state"
 
 	"github.com/gorilla/websocket"
@@ -36,7 +37,7 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 		return
 	}
 	fmt.Println(req)
-	if req.LobbyTime < 10 || req.GameTime < 10 {
+	if req.LobbyTime < shared.MinPhaseSeconds || req.GameTime < shared.MinPhaseSeconds {
 		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
 		return
 	}
@@ -141,7 +142,7 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 	}
 	if code == "" || username == "" {
 		conn.WriteJSON(map[string]string{
-			"type":    "error",
+			"type":    shared.WSHandshakeError,
 			"message": "Need to enter a code and a username.",
 		})
 		conn.Close()
@@ -150,7 +151,7 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 	m := globalState.GetGame(code)
 	if m == nil {
 		conn.WriteJSON(map[string]string{
-			"type":    "error",
+			"type":    shared.WSHandshakeError,
 			"message": "No game with this code.",
 		})
 		conn.Close()
@@ -162,7 +163,7 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 
 	if m.HasPlayerLocked(username) {
 		conn.WriteJSON(map[string]string{
-			"type":    "error",
+			"type":    shared.WSHandshakeError,
 			"message": "Username taken in this lobby.",
 		})
 		conn.Close()
@@ -171,7 +172,7 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 
 	if m.GameStarted {
 		conn.WriteJSON(map[string]string{
-			"type":    "error",
+			"type":    shared.WSHandshakeError,
 			"message": "This game has already started",
 		})
 		conn.Close()
@@ -183,7 +184,7 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 	// this will start routines for the player
 	m.AddPlayerLocked(username, player)
 	conn.WriteJSON(map[string]string{
-		"type":    "success",
+		"type":    shared.WSHandshakeSuccess,
 		"message": m.Title,
 	})
 

@@ -1,0 +1,12 @@
+{
+  "WSEventBoard": "Board",
+  "WSEventLeaderboard": "Leaderboard",
+  "WSEventPlayers": "Players",
+  "WSEventStart": "Start",
+  "WSEventTime": "Time",
+  "WSHandshakeError": "error",
+  "WSHandshakeSuccess": "success",
+  "CodeLength": 6,
+  "GameOverSentinel": "GAME_OVER",
+  "MinPhaseSeconds": 10
+}

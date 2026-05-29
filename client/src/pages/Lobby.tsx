@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
 import { useNavigate } from 'react-router-dom';
+import { WSEventTime, WSEventPlayers, WSEventStart } from '@/lib/constants';
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Copy, Check } from "lucide-react";
@@ -56,12 +57,12 @@ export const Lobby: React.FC = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.Type === 'Time') {
+        if (message.Type === WSEventTime) {
           if (initialTime == 0) {
             setInitialTime(message.TimeLeft)
           }
           setTimeLeft(message.TimeLeft);
-        } else if (message.Type === 'Players') {
+        } else if (message.Type === WSEventPlayers) {
           setPlayers((prev) => {
             const updated = new Map(prev);
             for (const [username, playerData] of Object.entries(message.Players)) {
@@ -73,7 +74,7 @@ export const Lobby: React.FC = () => {
             }
             return updated;
           });
-        } else if (message.Type === 'Start') {
+        } else if (message.Type === WSEventStart) {
           // Game hasn't been developed yet — return to home screen
           ws.onmessage = null
           setTimeLeft(0);
