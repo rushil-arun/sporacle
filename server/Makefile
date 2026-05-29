@@ -1,6 +1,9 @@
-.PHONY: test style tst vet fmt
+.PHONY: test style tst vet fmt gen
 
-fmt: 
+gen:
+	go run ./scripts/gen-constants
+
+fmt:
 	@test -z "$$(gofmt -s -l .)"
 
 vet: 

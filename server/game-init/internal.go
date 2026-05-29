@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"server/shared"
 	state "server/state"
 )
 
@@ -26,7 +27,7 @@ func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w 
 		writeError(w, http.StatusBadRequest, "title required")
 		return
 	}
-	if req.LobbyTime < 10 || req.GameTime < 10 {
+	if req.LobbyTime < shared.MinPhaseSeconds || req.GameTime < shared.MinPhaseSeconds {
 		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	game "server/game"
+	"server/shared"
 )
 
 const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -30,7 +31,7 @@ func NewGlobalState() *GlobalState {
 // Assumes caller has the lock for the global state.
 func (s *GlobalState) generateCode() string {
 	for {
-		b := make([]byte, 6)
+		b := make([]byte, shared.CodeLength)
 		for i := range b {
 			b[i] = codeChars[rand.Intn(len(codeChars))]
 		}
@@ -47,7 +48,7 @@ func (s *GlobalState) GenerateCode() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for {
-		b := make([]byte, 6)
+		b := make([]byte, shared.CodeLength)
 		for i := range b {
 			b[i] = codeChars[rand.Intn(len(codeChars))]
 		}

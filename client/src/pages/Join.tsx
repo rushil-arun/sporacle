@@ -4,8 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
 import { useGetWsUrl } from '../hooks/useApi';
-
-const CODE_LENGTH = 6;
+import { CodeLength, WSHandshakeError, WSHandshakeSuccess } from '@/lib/constants';
 
 export const Join: React.FC = () => {
   const navigate = useNavigate();
@@ -13,7 +12,7 @@ export const Join: React.FC = () => {
   const { getWsUrl, loading, error } = useGetWsUrl();
 
   const [codeInputs, setCodeInputs] = useState<string[]>(
-    code ? code.split('') : Array(CODE_LENGTH).fill('')
+    code ? code.split('') : Array(CodeLength).fill('')
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -24,7 +23,7 @@ export const Join: React.FC = () => {
     const next = [...codeInputs];
     next[index] = char;
     setCodeInputs(next);
-    if (char && index < CODE_LENGTH - 1) {
+    if (char && index < CodeLength - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -44,13 +43,13 @@ export const Join: React.FC = () => {
       .getData('text')
       .replace(/[^a-zA-Z0-9]/g, '')
       .toUpperCase()
-      .slice(0, CODE_LENGTH);
-    const next = Array(CODE_LENGTH).fill('');
+      .slice(0, CodeLength);
+    const next = Array(CodeLength).fill('');
     pasted.split('').forEach((char, i) => {
       next[i] = char;
     });
     setCodeInputs(next);
-    const focusIndex = Math.min(pasted.length, CODE_LENGTH - 1);
+    const focusIndex = Math.min(pasted.length, CodeLength - 1);
     inputRefs.current[focusIndex]?.focus();
   };
 
@@ -67,7 +66,7 @@ export const Join: React.FC = () => {
       return;
     }
 
-    if (fullCode.length !== 6) {
+    if (fullCode.length !== CodeLength) {
       setSubmitError('Please enter all 6 characters of the game code');
       return;
     }
@@ -88,9 +87,9 @@ export const Join: React.FC = () => {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === 'error') {
+            if (data.type === WSHandshakeError) {
               setError(data.message);
-            } else if (data.type === 'success') {
+            } else if (data.type === WSHandshakeSuccess) {
               setTitle(data.message)
               setWs(ws);
               navigate('/lobby');

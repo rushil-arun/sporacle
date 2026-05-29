@@ -3,6 +3,7 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import { useGame } from '../context/GameContext';
 import { useNavigate } from "react-router-dom";
 import type { LeaderboardEntry } from "@/types/types";
+import { WSEventTime, WSEventBoard, WSEventLeaderboard, GameOverSentinel } from '@/lib/constants';
 
 // ── Mock config ────────────────────────────────────────────────────────────────
 
@@ -49,9 +50,9 @@ export const Game: React.FC = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.Type === 'Time') {
+        if (message.Type === WSEventTime) {
           setTimeLeft(message.TimeLeft);
-        } else if (message.Type === 'Board') {
+        } else if (message.Type === WSEventBoard) {
           setBoard((prev) => {
             const updated = new Map(prev);
             for (const [item, playerData] of Object.entries(message.State)) {
@@ -63,9 +64,9 @@ export const Game: React.FC = () => {
             }
             return updated;
           });
-        } else if (message.Type === 'Leaderboard') {
+        } else if (message.Type === WSEventLeaderboard) {
           setPodium(message.Leaderboard as LeaderboardEntry[]);
-          const request = { username : username, code: code, Item: "GAME_OVER"}
+          const request = { username : username, code: code, Item: GameOverSentinel }
           if (ws?.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify(request));
           }
