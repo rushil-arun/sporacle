@@ -38,10 +38,10 @@ func TestAssignGame_PicksLeastLoaded(t *testing.T) {
 		t.Errorf("expected game_servers[GAME01]=localhost:8081, got %s", stored)
 	}
 
-	// Verify the score was incremented.
+	// Score should remain 0 — AssignGame no longer increments load on assignment.
 	score, _ := rdb.ZScore(ctx, rediscoord.ServerLoadZSet, "localhost:8081").Result()
-	if score != 1 {
-		t.Errorf("expected score 1 for localhost:8081, got %f", score)
+	if score != 0 {
+		t.Errorf("expected score 0 for localhost:8081, got %f", score)
 	}
 }
 
@@ -92,13 +92,13 @@ func TestAssignGame_Concurrent(t *testing.T) {
 	if len(games) != n {
 		t.Errorf("expected %d game mappings, got %d", n, len(games))
 	}
-	// Total load across servers should equal n.
+	// Total load should remain 0 — AssignGame no longer increments load on assignment.
 	members, _ := rdb.ZRangeWithScores(ctx, rediscoord.ServerLoadZSet, 0, -1).Result()
 	var total float64
 	for _, m := range members {
 		total += m.Score
 	}
-	if total != n {
-		t.Errorf("expected total load %d, got %f", n, total)
+	if total != 0 {
+		t.Errorf("expected total load 0, got %f", total)
 	}
 }
