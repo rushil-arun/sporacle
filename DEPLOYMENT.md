@@ -36,15 +36,15 @@ SSH into the instance, then:
    # on your laptop, from the repo root
    cd server
    make gen
-   GOOS=linux GOARCH=amd64 go build -o sporcle-server .
-   scp -i ~/.ssh/<your-key>.pem sporcle-server ubuntu@<elastic-ip>:/tmp/
+   GOOS=linux GOARCH=amd64 go build -o sporacle-server .
+   scp -i ~/.ssh/<your-key>.pem sporacle-server ubuntu@<elastic-ip>:/tmp/
    scp -i ~/.ssh/<your-key>.pem -r ../trivia ubuntu@<elastic-ip>:/tmp/
    ```
 3. On the instance, create a service user and move things into place. The backend reads trivia JSON from `../trivia` relative to its working directory, so mirror the repo layout: the binary lives in `/opt/sporcle/server/` and `trivia/` sits next to it at `/opt/sporcle/trivia/`.
    ```bash
    sudo useradd --system --no-create-home --shell /usr/sbin/nologin sporcle
    sudo mkdir -p /opt/sporcle/server
-   sudo mv /tmp/sporcle-server /opt/sporcle/server/
+   sudo mv /tmp/sporacle-server /opt/sporcle/server/
    sudo mv /tmp/trivia /opt/sporcle/trivia
    sudo chown -R sporcle:sporcle /opt/sporcle
    ```
@@ -66,7 +66,7 @@ SSH into the instance, then:
    [Service]
    WorkingDirectory=/opt/sporcle/server
    EnvironmentFile=/opt/sporcle/server/.env
-   ExecStart=/opt/sporcle/server/sporcle-server
+   ExecStart=/opt/sporcle/server/sporacle-server
    Restart=on-failure
    User=sporcle
 
@@ -114,10 +114,10 @@ SSH into the instance, then:
 - **Go code changed:** rebuild and replace the binary, then restart.
   ```bash
   cd server
-  GOOS=linux GOARCH=amd64 go build -o sporcle-server .
-  scp -i ~/.ssh/<your-key>.pem sporcle-server ubuntu@<elastic-ip>:/tmp/
+  GOOS=linux GOARCH=amd64 go build -o sporacle-server .
+  scp -i ~/.ssh/<your-key>.pem sporacle-server ubuntu@<elastic-ip>:/tmp/
   ssh -i ~/.ssh/<your-key>.pem ubuntu@<elastic-ip> \
-    'sudo mv /tmp/sporcle-server /opt/sporcle/server/sporcle-server && sudo chown sporcle:sporcle /opt/sporcle/server/sporcle-server && sudo systemctl restart sporcle'
+    'sudo mv /tmp/sporacle-server /opt/sporcle/server/sporacle-server && sudo chown sporcle:sporcle /opt/sporcle/server/sporacle-server && sudo systemctl restart sporcle'
   ```
 - **`.env` changed on the instance:** `sudo systemctl restart sporcle`.
 - **Trivia JSON changed:** copy the file into `/opt/sporcle/trivia/`. It is read at game creation, so no restart is needed.
