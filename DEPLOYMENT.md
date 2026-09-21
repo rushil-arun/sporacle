@@ -14,50 +14,52 @@ This assumes no domain name is owned yet — using a free [DuckDNS](https://www.
 
 1. **EC2 → Launch instance**: Ubuntu 22.04/24.04 LTS, instance type `t2.micro` or `t3.micro` (free tier eligible), default 8GB gp3 root volume, create/select a key pair for SSH.
 2. **Security group** — create one with:
-   - SSH (22) from your IP only
-   - HTTP (80) from `0.0.0.0/0` (needed for the Let's Encrypt HTTP-01 challenge)
-   - HTTPS (443) from `0.0.0.0/0`
-   - nothing else open — no 6379, no 8080; those stay internal to the box
+  - SSH (22) from your IP only
+  - HTTP (80) from `0.0.0.0/0` (needed for the Let's Encrypt HTTP-01 challenge)
+  - HTTPS (443) from `0.0.0.0/0`
+  - nothing else open — no 6379, no 8080; those stay internal to the box
 3. **Elastic IP** — allocate one and associate it with the instance, so the public IP is stable across reboots.
-4. **DuckDNS** — create a free subdomain (e.g. `sporacle-api.duckdns.org`) pointed at the Elastic IP.
+4. **DuckDNS** — create a free subdomain (e.g. `sporacle.duckdns.org`) pointed at the Elastic IP.
+
+
 
 ## Part 2 — Install Redis and the app on the instance
 
 SSH into the instance, then:
 
 1. Install and start Redis:
-   ```bash
+  ```bash
    sudo apt update && sudo apt install -y redis-server
    # confirm `bind 127.0.0.1` in /etc/redis/redis.conf (default)
    sudo systemctl enable --now redis-server
-   ```
+  ```
 2. Build the backend binary. Either install the Go toolchain on the instance, or cross-compile locally and `scp` the binary over (lighter on a free-tier box's disk/RAM):
-   ```bash
+  ```bash
    # on your laptop, from the repo root
    cd server
    make gen
    GOOS=linux GOARCH=amd64 go build -o sporacle-server .
    scp -i ~/.ssh/<your-key>.pem sporacle-server ubuntu@<elastic-ip>:/tmp/
    scp -i ~/.ssh/<your-key>.pem -r ../trivia ubuntu@<elastic-ip>:/tmp/
-   ```
+  ```
 3. On the instance, create a service user and move things into place. The backend reads trivia JSON from `../trivia` relative to its working directory, so mirror the repo layout: the binary lives in `/opt/sporacle/server/` and `trivia/` sits next to it at `/opt/sporacle/trivia/`.
-   ```bash
+  ```bash
    sudo useradd --system --no-create-home --shell /usr/sbin/nologin sporacle
    sudo mkdir -p /opt/sporacle/server
    sudo mv /tmp/sporacle-server /opt/sporacle/server/
    sudo mv /tmp/trivia /opt/sporacle/trivia
    sudo chown -R sporacle:sporacle /opt/sporacle
-   ```
+  ```
 4. Create `/opt/sporacle/server/.env`:
-   ```
+  ```
    SERVER_BASE_URL=:8080
-   SERVER_ADDR=sporacle-api.duckdns.org:443
+   SERVER_ADDR=sporacle.duckdns.org:443
    REDIS_ADDR=localhost:6379
    WS_SCHEME=wss
    LOBBY_TIME=60
-   ```
+  ```
 5. Create a systemd unit at `/etc/systemd/system/sporacle.service`:
-   ```ini
+  ```ini
    [Unit]
    Description=Sporacle backend
    After=network.target redis-server.service
@@ -72,42 +74,46 @@ SSH into the instance, then:
 
    [Install]
    WantedBy=multi-user.target
-   ```
+  ```
    Then:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now sporacle
-   ```
+
+
 
 ## Part 3 — TLS reverse proxy (Caddy)
 
 1. Install Caddy from [their official apt repo](https://caddyserver.com/docs/install#debian-ubuntu-raspbian).
 2. Set `/etc/caddy/Caddyfile`:
-   ```
-   sporacle-api.duckdns.org {
+  ```
+   sporacle.duckdns.org {
        reverse_proxy 127.0.0.1:8080
    }
-   ```
+  ```
    Caddy handles the WebSocket upgrade passthrough automatically and issues/renews the Let's Encrypt cert with no extra config.
 3. Restart and verify:
-   ```bash
+  ```bash
    sudo systemctl restart caddy
-   curl https://sporacle-api.duckdns.org/trivia/files   # should return JSON
+   curl https://sporacle.duckdns.org/trivia/files   # should return JSON
    journalctl -u caddy   # should show successful cert issuance
-   ```
+  ```
+
+
 
 ## Part 4 — Point the frontend at it
 
-1. In Vercel project settings, set `VITE_SERVER_URLS=https://sporacle-api.duckdns.org` (or `VITE_SERVER_BASE_URL` — see the `VITE_SERVER_URLS`/`VITE_SERVER_BASE_URL` precedence note in the root `README.md`; if you set `VITE_SERVER_URLS`, make sure it only lists servers that are actually running, since the client picks randomly among all of them).
+1. In Vercel project settings, set `VITE_SERVER_URLS=https://sporacle.duckdns.org` (or `VITE_SERVER_BASE_URL` — see the `VITE_SERVER_URLS`/`VITE_SERVER_BASE_URL` precedence note in the root `README.md`; if you set `VITE_SERVER_URLS`, make sure it only lists servers that are actually running, since the client picks randomly among all of them).
 2. Redeploy the Vercel frontend so the new env var is baked into the build.
+
+
 
 ## Verification
 
 1. `redis-cli -h localhost ping` on the instance → `PONG`.
-2. `systemctl status sporacle` → active; `journalctl -u sporacle -f` shows `Registered as sporacle-api.duckdns.org:443` and `Listening on :8080`.
-3. `curl https://sporacle-api.duckdns.org/trivia/files` from your laptop → 200 JSON.
+2. `systemctl status sporacle` → active; `journalctl -u sporacle -f` shows `Registered as sporacle.duckdns.org:443` and `Listening on :8080`.
+3. `curl https://sporacle.duckdns.org/trivia/files` from your laptop → 200 JSON.
 4. From the deployed Vercel app: create a game, check the Network tab that `/get-ws-url` returns a `wss://` URL, join, and confirm the WebSocket connects with no mixed-content console error and board/timer events flow.
 5. `cd server && make test` locally, to confirm nothing about the deployment config broke the existing test suite.
+
+
 
 ## Updating after a change
 
@@ -119,9 +125,11 @@ SSH into the instance, then:
   ssh -i ~/.ssh/<your-key>.pem ubuntu@<elastic-ip> \
     'sudo mv /tmp/sporacle-server /opt/sporacle/server/sporacle-server && sudo chown sporacle:sporacle /opt/sporacle/server/sporacle-server && sudo systemctl restart sporacle'
   ```
-- **`.env` changed on the instance:** `sudo systemctl restart sporacle`.
+- `.env` **changed on the instance:** `sudo systemctl restart sporacle`.
 - **Trivia JSON changed:** copy the file into `/opt/sporacle/trivia/`. It is read at game creation, so no restart is needed.
 - **Frontend changed:** redeploy on Vercel; the instance isn't involved.
+
+
 
 ## Scaling beyond one instance
 
