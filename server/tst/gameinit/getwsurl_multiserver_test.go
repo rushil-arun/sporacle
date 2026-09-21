@@ -22,7 +22,7 @@ func TestGetWSURLHandler_MultiServer_GameFound(t *testing.T) {
 	gs := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?code=GAME01&username=alice", nil)
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(gs, rdb, rec, req)
+	gameinit.GetWSURLHandler(gs, rdb, "ws", rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
@@ -41,7 +41,7 @@ func TestGetWSURLHandler_MultiServer_GameNotFound(t *testing.T) {
 	gs := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?code=NOSUCH&username=alice", nil)
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(gs, rdb, rec, req)
+	gameinit.GetWSURLHandler(gs, rdb, "ws", rec, req)
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rec.Code)

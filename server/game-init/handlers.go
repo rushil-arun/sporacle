@@ -100,7 +100,7 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 // GetWSURLHandler returns a WS URL for a client trying to join a game.
 // When rdb is non-nil it looks up which server hosts the game and returns a URL
 // pointing to that server. When rdb is nil it falls back to single-server mode.
-func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, w http.ResponseWriter, r *http.Request) {
+func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, wsScheme string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -115,7 +115,7 @@ func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, w http.R
 
 	if rdb == nil {
 		// Single-server mode: build URL using the current request's host.
-		url := buildWSURL(r, req.Code, req.Username)
+		url := buildWSURL(wsScheme, r, req.Code, req.Username)
 		writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
 		return
 	}
@@ -126,7 +126,7 @@ func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, w http.R
 		writeError(w, http.StatusNotFound, "game not found")
 		return
 	}
-	url := buildWSURLForAddr(serverAddr, req.Code, req.Username)
+	url := buildWSURLForAddr(wsScheme, serverAddr, req.Code, req.Username)
 	writeJSON(w, http.StatusOK, WSURLResponse{URL: url})
 }
 
@@ -208,16 +208,13 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 // buildWSURL returns the wss:// or ws:// URL with game and user query params,
-// using the host from the incoming request.
-func buildWSURL(r *http.Request, code, username string) string {
-	scheme := "ws"
-	if r.TLS != nil {
-		scheme = "wss"
-	}
+// using the host from the incoming request. scheme comes from config rather than
+// r.TLS since a TLS-terminating reverse proxy leaves r.TLS nil on the Go side.
+func buildWSURL(scheme string, r *http.Request, code, username string) string {
 	return scheme + "://" + r.Host + "/ws?game=" + code + "&user=" + username
 }
 
-// buildWSURLForAddr builds a ws:// URL pointing at a specific server address.
-func buildWSURLForAddr(serverAddr, code, username string) string {
-	return "ws://" + serverAddr + "/ws?game=" + code + "&user=" + username
+// buildWSURLForAddr builds a WS URL pointing at a specific server address.
+func buildWSURLForAddr(scheme, serverAddr, code, username string) string {
+	return scheme + "://" + serverAddr + "/ws?game=" + code + "&user=" + username
 }

@@ -94,7 +94,7 @@ func TestGetWSURLHandler_MethodNotAllowed(t *testing.T) {
 	body, _ := json.Marshal(gameinit.JoinRequest{Username: "bob", Code: "ABC123"})
 	req := httptest.NewRequest(http.MethodPost, "/get-ws-url", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(globalState, nil, rec, req)
+	gameinit.GetWSURLHandler(globalState, nil, "ws", rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("GetWSURLHandler POST: status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 	}
@@ -104,7 +104,7 @@ func TestGetWSURLHandler_InvalidBody(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=&code=", nil)
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(globalState, nil, rec, req)
+	gameinit.GetWSURLHandler(globalState, nil, "ws", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("GetWSURLHandler invalid body: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
@@ -114,13 +114,13 @@ func TestGetWSURLHandler_MissingFields(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=LeBron", nil) // missing code
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(globalState, nil, rec, req)
+	gameinit.GetWSURLHandler(globalState, nil, "ws", rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("GetWSURLHandler missing code: status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 	req2 := httptest.NewRequest(http.MethodGet, "/get-ws-url?code=ABC123", nil) // missing username
 	rec2 := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(globalState, nil, rec2, req2)
+	gameinit.GetWSURLHandler(globalState, nil, "ws", rec2, req2)
 	if rec2.Code != http.StatusBadRequest {
 		t.Errorf("GetWSURLHandler missing username: status = %d, want %d", rec2.Code, http.StatusBadRequest)
 	}
@@ -131,7 +131,7 @@ func TestGetWSURLHandler_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/get-ws-url?username=bob&code=JOIN3", nil)
 	req.Host = "test.local"
 	rec := httptest.NewRecorder()
-	gameinit.GetWSURLHandler(globalState, nil, rec, req)
+	gameinit.GetWSURLHandler(globalState, nil, "ws", rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GetWSURLHandler success: status = %d, want 200", rec.Code)
 	}
@@ -164,7 +164,7 @@ func TestConnect_MissingParams(t *testing.T) {
 func TestConnect_GameNotFound(t *testing.T) {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, nil, "")
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -202,7 +202,7 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	m.AddPlayer("LeBron", fakePlayer)
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, nil, "")
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -236,7 +236,7 @@ func TestConnect_FirstConnection(t *testing.T) {
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, nil, "")
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -268,7 +268,7 @@ func TestConnect_TwoDifferentUsers(t *testing.T) {
 	code := m.Code
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, nil, "")
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -299,7 +299,7 @@ func TestConnect_TwoDifferentUsers(t *testing.T) {
 func TestRegisterRoutes(t *testing.T) {
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, nil, "")
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
 	// Verify routes respond: create-game with GET returns 405
 	req := httptest.NewRequest(http.MethodGet, "/create-game", nil)
 	rec := httptest.NewRecorder()

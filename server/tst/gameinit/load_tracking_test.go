@@ -37,7 +37,7 @@ func TestConnect_LoadTracking(t *testing.T) {
 	}()
 
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, gs, rdb, selfAddr)
+	gameinit.RegisterRoutes(mux, gs, rdb, selfAddr, "ws")
 	server := httptest.NewServer(mux)
 	defer server.Close()
 

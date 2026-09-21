@@ -11,12 +11,15 @@ import (
 // RegisterRoutes registers all public and internal routes.
 // Pass nil for rdb and "" for serverAddr to run in single-server mode
 // (existing behaviour, no Redis lookups performed).
-func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState, rdb *redis.Client, serverAddr string) {
+// wsScheme is the scheme ("ws" or "wss") used to build WebSocket URLs returned
+// to clients; it should be "wss" whenever the server sits behind a TLS-terminating
+// reverse proxy.
+func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState, rdb *redis.Client, serverAddr string, wsScheme string) {
 	mux.HandleFunc("/create-game", func(w http.ResponseWriter, r *http.Request) {
 		CreateHandler(globalState, rdb, serverAddr, w, r)
 	})
 	mux.HandleFunc("/get-ws-url", func(w http.ResponseWriter, r *http.Request) {
-		GetWSURLHandler(globalState, rdb, w, r)
+		GetWSURLHandler(globalState, rdb, wsScheme, w, r)
 	})
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		Connect(globalState, rdb, serverAddr, w, r)

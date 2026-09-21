@@ -56,6 +56,10 @@ func main() {
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
+	wsScheme := os.Getenv("WS_SCHEME")
+	if wsScheme == "" {
+		wsScheme = "ws"
+	}
 
 	rdb, err := rediscoord.NewClient(redisAddr)
 	if err != nil {
@@ -70,7 +74,7 @@ func main() {
 
 	globalState := state.NewGlobalState()
 	mux := http.NewServeMux()
-	gameinit.RegisterRoutes(mux, globalState, rdb, serverAddr)
+	gameinit.RegisterRoutes(mux, globalState, rdb, serverAddr, wsScheme)
 	trivia.RegisterRoutes(mux)
 
 	srv := &http.Server{Addr: listen, Handler: cors(mux)}
