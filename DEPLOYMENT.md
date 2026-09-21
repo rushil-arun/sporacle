@@ -37,16 +37,18 @@ SSH into the instance, then:
    cd server
    make gen
    GOOS=linux GOARCH=amd64 go build -o sporcle-server .
-   scp sporcle-server ubuntu@<elastic-ip>:/tmp/
-   scp -r ../trivia ubuntu@<elastic-ip>:/tmp/
+   scp -i ~/.ssh/<your-key>.pem sporcle-server ubuntu@<elastic-ip>:/tmp/
+   scp -i ~/.ssh/<your-key>.pem -r ../trivia ubuntu@<elastic-ip>:/tmp/
    ```
-3. On the instance, move things into place:
+3. On the instance, create a service user and move things into place. The backend reads trivia JSON from `../trivia` relative to its working directory, so mirror the repo layout: the binary lives in `/opt/sporcle/server/` and `trivia/` sits next to it at `/opt/sporcle/trivia/`.
    ```bash
-   sudo mkdir -p /opt/sporcle
-   sudo mv /tmp/sporcle-server /tmp/trivia /opt/sporcle/
+   sudo useradd --system --no-create-home --shell /usr/sbin/nologin sporcle
+   sudo mkdir -p /opt/sporcle/server
+   sudo mv /tmp/sporcle-server /opt/sporcle/server/
+   sudo mv /tmp/trivia /opt/sporcle/trivia
+   sudo chown -R sporcle:sporcle /opt/sporcle
    ```
-   Note the backend reads trivia JSON from `../trivia/*.json` relative to its working directory, so `trivia/` needs to sit next to the `server/`-equivalent working directory — the systemd unit below sets `WorkingDirectory=/opt/sporcle`, matching a layout of `/opt/sporcle/sporcle-server` + `/opt/trivia/`. Adjust the path in `state.loadTriviaItems` expectations or your directory layout so `../trivia` resolves correctly from wherever you run the binary.
-4. Create `/opt/sporcle/.env`:
+4. Create `/opt/sporcle/server/.env`:
    ```
    SERVER_BASE_URL=:8080
    SERVER_ADDR=sporcle-api.duckdns.org:443
@@ -62,9 +64,9 @@ SSH into the instance, then:
    Requires=redis-server.service
 
    [Service]
-   WorkingDirectory=/opt/sporcle
-   EnvironmentFile=/opt/sporcle/.env
-   ExecStart=/opt/sporcle/sporcle-server
+   WorkingDirectory=/opt/sporcle/server
+   EnvironmentFile=/opt/sporcle/server/.env
+   ExecStart=/opt/sporcle/server/sporcle-server
    Restart=on-failure
    User=sporcle
 
@@ -106,6 +108,20 @@ SSH into the instance, then:
 3. `curl https://sporcle-api.duckdns.org/trivia/files` from your laptop → 200 JSON.
 4. From the deployed Vercel app: create a game, check the Network tab that `/get-ws-url` returns a `wss://` URL, join, and confirm the WebSocket connects with no mixed-content console error and board/timer events flow.
 5. `cd server && make test` locally, to confirm nothing about the deployment config broke the existing test suite.
+
+## Updating after a change
+
+- **Go code changed:** rebuild and replace the binary, then restart.
+  ```bash
+  cd server
+  GOOS=linux GOARCH=amd64 go build -o sporcle-server .
+  scp -i ~/.ssh/<your-key>.pem sporcle-server ubuntu@<elastic-ip>:/tmp/
+  ssh -i ~/.ssh/<your-key>.pem ubuntu@<elastic-ip> \
+    'sudo mv /tmp/sporcle-server /opt/sporcle/server/sporcle-server && sudo chown sporcle:sporcle /opt/sporcle/server/sporcle-server && sudo systemctl restart sporcle'
+  ```
+- **`.env` changed on the instance:** `sudo systemctl restart sporcle`.
+- **Trivia JSON changed:** copy the file into `/opt/sporcle/trivia/`. It is read at game creation, so no restart is needed.
+- **Frontend changed:** redeploy on Vercel; the instance isn't involved.
 
 ## Scaling beyond one instance
 
