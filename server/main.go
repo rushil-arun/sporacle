@@ -44,7 +44,7 @@ func cors(next http.Handler) http.Handler {
 }
 
 func main() {
-	fmt.Println("Welcome to Sporcle!")
+	fmt.Println("Welcome to Sporacle!")
 
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")

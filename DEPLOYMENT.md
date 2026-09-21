@@ -19,7 +19,7 @@ This assumes no domain name is owned yet — using a free [DuckDNS](https://www.
    - HTTPS (443) from `0.0.0.0/0`
    - nothing else open — no 6379, no 8080; those stay internal to the box
 3. **Elastic IP** — allocate one and associate it with the instance, so the public IP is stable across reboots.
-4. **DuckDNS** — create a free subdomain (e.g. `sporcle-api.duckdns.org`) pointed at the Elastic IP.
+4. **DuckDNS** — create a free subdomain (e.g. `sporacle-api.duckdns.org`) pointed at the Elastic IP.
 
 ## Part 2 — Install Redis and the app on the instance
 
@@ -40,35 +40,35 @@ SSH into the instance, then:
    scp -i ~/.ssh/<your-key>.pem sporacle-server ubuntu@<elastic-ip>:/tmp/
    scp -i ~/.ssh/<your-key>.pem -r ../trivia ubuntu@<elastic-ip>:/tmp/
    ```
-3. On the instance, create a service user and move things into place. The backend reads trivia JSON from `../trivia` relative to its working directory, so mirror the repo layout: the binary lives in `/opt/sporcle/server/` and `trivia/` sits next to it at `/opt/sporcle/trivia/`.
+3. On the instance, create a service user and move things into place. The backend reads trivia JSON from `../trivia` relative to its working directory, so mirror the repo layout: the binary lives in `/opt/sporacle/server/` and `trivia/` sits next to it at `/opt/sporacle/trivia/`.
    ```bash
-   sudo useradd --system --no-create-home --shell /usr/sbin/nologin sporcle
-   sudo mkdir -p /opt/sporcle/server
-   sudo mv /tmp/sporacle-server /opt/sporcle/server/
-   sudo mv /tmp/trivia /opt/sporcle/trivia
-   sudo chown -R sporcle:sporcle /opt/sporcle
+   sudo useradd --system --no-create-home --shell /usr/sbin/nologin sporacle
+   sudo mkdir -p /opt/sporacle/server
+   sudo mv /tmp/sporacle-server /opt/sporacle/server/
+   sudo mv /tmp/trivia /opt/sporacle/trivia
+   sudo chown -R sporacle:sporacle /opt/sporacle
    ```
-4. Create `/opt/sporcle/server/.env`:
+4. Create `/opt/sporacle/server/.env`:
    ```
    SERVER_BASE_URL=:8080
-   SERVER_ADDR=sporcle-api.duckdns.org:443
+   SERVER_ADDR=sporacle-api.duckdns.org:443
    REDIS_ADDR=localhost:6379
    WS_SCHEME=wss
    LOBBY_TIME=60
    ```
-5. Create a systemd unit at `/etc/systemd/system/sporcle.service`:
+5. Create a systemd unit at `/etc/systemd/system/sporacle.service`:
    ```ini
    [Unit]
-   Description=Sporcle backend
+   Description=Sporacle backend
    After=network.target redis-server.service
    Requires=redis-server.service
 
    [Service]
-   WorkingDirectory=/opt/sporcle/server
-   EnvironmentFile=/opt/sporcle/server/.env
-   ExecStart=/opt/sporcle/server/sporacle-server
+   WorkingDirectory=/opt/sporacle/server
+   EnvironmentFile=/opt/sporacle/server/.env
+   ExecStart=/opt/sporacle/server/sporacle-server
    Restart=on-failure
-   User=sporcle
+   User=sporacle
 
    [Install]
    WantedBy=multi-user.target
@@ -76,7 +76,7 @@ SSH into the instance, then:
    Then:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable --now sporcle
+   sudo systemctl enable --now sporacle
    ```
 
 ## Part 3 — TLS reverse proxy (Caddy)
@@ -84,7 +84,7 @@ SSH into the instance, then:
 1. Install Caddy from [their official apt repo](https://caddyserver.com/docs/install#debian-ubuntu-raspbian).
 2. Set `/etc/caddy/Caddyfile`:
    ```
-   sporcle-api.duckdns.org {
+   sporacle-api.duckdns.org {
        reverse_proxy 127.0.0.1:8080
    }
    ```
@@ -92,20 +92,20 @@ SSH into the instance, then:
 3. Restart and verify:
    ```bash
    sudo systemctl restart caddy
-   curl https://sporcle-api.duckdns.org/trivia/files   # should return JSON
+   curl https://sporacle-api.duckdns.org/trivia/files   # should return JSON
    journalctl -u caddy   # should show successful cert issuance
    ```
 
 ## Part 4 — Point the frontend at it
 
-1. In Vercel project settings, set `VITE_SERVER_URLS=https://sporcle-api.duckdns.org` (or `VITE_SERVER_BASE_URL` — see the `VITE_SERVER_URLS`/`VITE_SERVER_BASE_URL` precedence note in the root `README.md`; if you set `VITE_SERVER_URLS`, make sure it only lists servers that are actually running, since the client picks randomly among all of them).
+1. In Vercel project settings, set `VITE_SERVER_URLS=https://sporacle-api.duckdns.org` (or `VITE_SERVER_BASE_URL` — see the `VITE_SERVER_URLS`/`VITE_SERVER_BASE_URL` precedence note in the root `README.md`; if you set `VITE_SERVER_URLS`, make sure it only lists servers that are actually running, since the client picks randomly among all of them).
 2. Redeploy the Vercel frontend so the new env var is baked into the build.
 
 ## Verification
 
 1. `redis-cli -h localhost ping` on the instance → `PONG`.
-2. `systemctl status sporcle` → active; `journalctl -u sporcle -f` shows `Registered as sporcle-api.duckdns.org:443` and `Listening on :8080`.
-3. `curl https://sporcle-api.duckdns.org/trivia/files` from your laptop → 200 JSON.
+2. `systemctl status sporacle` → active; `journalctl -u sporacle -f` shows `Registered as sporacle-api.duckdns.org:443` and `Listening on :8080`.
+3. `curl https://sporacle-api.duckdns.org/trivia/files` from your laptop → 200 JSON.
 4. From the deployed Vercel app: create a game, check the Network tab that `/get-ws-url` returns a `wss://` URL, join, and confirm the WebSocket connects with no mixed-content console error and board/timer events flow.
 5. `cd server && make test` locally, to confirm nothing about the deployment config broke the existing test suite.
 
@@ -117,10 +117,10 @@ SSH into the instance, then:
   GOOS=linux GOARCH=amd64 go build -o sporacle-server .
   scp -i ~/.ssh/<your-key>.pem sporacle-server ubuntu@<elastic-ip>:/tmp/
   ssh -i ~/.ssh/<your-key>.pem ubuntu@<elastic-ip> \
-    'sudo mv /tmp/sporacle-server /opt/sporcle/server/sporacle-server && sudo chown sporcle:sporcle /opt/sporcle/server/sporacle-server && sudo systemctl restart sporcle'
+    'sudo mv /tmp/sporacle-server /opt/sporacle/server/sporacle-server && sudo chown sporacle:sporacle /opt/sporacle/server/sporacle-server && sudo systemctl restart sporacle'
   ```
-- **`.env` changed on the instance:** `sudo systemctl restart sporcle`.
-- **Trivia JSON changed:** copy the file into `/opt/sporcle/trivia/`. It is read at game creation, so no restart is needed.
+- **`.env` changed on the instance:** `sudo systemctl restart sporacle`.
+- **Trivia JSON changed:** copy the file into `/opt/sporacle/trivia/`. It is read at game creation, so no restart is needed.
 - **Frontend changed:** redeploy on Vercel; the instance isn't involved.
 
 ## Scaling beyond one instance

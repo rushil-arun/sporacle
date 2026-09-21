@@ -1,4 +1,4 @@
-# Sporcle API Reference
+# Sporacle API Reference
 
 This document covers every HTTP endpoint and WebSocket message exchanged between the frontend and backend. Use it as the source of truth when adding new routes or modifying existing ones.
 
