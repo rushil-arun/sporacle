@@ -2,3 +2,5 @@ instructions/
 .env
 CLAUDE.md
 claude/
+DEPLOYMENT.md
+scripts/.deploy.env
