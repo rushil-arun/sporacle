@@ -76,8 +76,10 @@ SSH into the instance, then:
    WantedBy=multi-user.target
   ```
    Then:
-
-
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now sporacle
+   ```
 
 ## Part 3 — TLS reverse proxy (Caddy)
 
