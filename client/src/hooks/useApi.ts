@@ -141,3 +141,80 @@ export const useTriviaKeys = () => {
 
   return { fetchKeys, loading, error };
 };
+
+export const useSearchBroadCategories = () => {
+  const searchBroadCategories = async (query: string): Promise<string[] | null> => {
+    try {
+      const response = await axios.get<string[]>(
+        `${pickRandomServer()}/trivia/broad-categories`,
+        { params: { q: query } }
+      );
+      return response.data;
+    } catch {
+      return null;
+    }
+  };
+
+  return { searchBroadCategories };
+};
+
+export const useSearchNarrowCategories = () => {
+  const searchNarrowCategories = async (query: string): Promise<string[] | null> => {
+    try {
+      const response = await axios.get<string[]>(
+        `${pickRandomServer()}/trivia/narrow-categories`,
+        { params: { q: query } }
+      );
+      return response.data;
+    } catch {
+      return null;
+    }
+  };
+
+  return { searchNarrowCategories };
+};
+
+interface CreateCategoryResponse {
+  broadCategory: string;
+  narrowCategory: string;
+  items: string[];
+}
+
+interface CreateCategoryError {
+  error?: string;
+}
+
+export const useCreateCategory = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Returns the error message directly (not just via the `error` state) since a
+  // caller awaiting this promise runs before the state update above is applied,
+  // so reading the hook's `error` state right after awaiting would be stale.
+  const createCategory = async (
+    broadCategory: string,
+    narrowCategory: string,
+    items: string[]
+  ): Promise<{ data: CreateCategoryResponse | null; error: string | null }> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post<CreateCategoryResponse>(
+        `${pickRandomServer()}/trivia/categories`,
+        { broadCategory, narrowCategory, items },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      return { data: response.data, error: null };
+    } catch (err) {
+      const axiosError = err as AxiosError<CreateCategoryError>;
+      const errorMessage =
+        axiosError.response?.data?.error || 'Failed to create category';
+      setError(errorMessage);
+      return { data: null, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { createCategory, loading, error };
+};

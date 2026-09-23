@@ -49,6 +49,12 @@ export const Home: React.FC = () => {
           >
             Create Game
           </button>
+          <button
+            className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+            onClick={() => navigate('/create-template')}
+          >
+            Create Game Template
+          </button>
         </div>
       </div>
     </div>
