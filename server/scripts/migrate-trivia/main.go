@@ -53,7 +53,7 @@ func main() {
 
 		broad := strings.TrimSuffix(e.Name(), ".json")
 		for narrow, items := range obj {
-			if err := triviadb.Insert(db, broad, narrow, dedupe(items), ""); err != nil {
+			if err := triviadb.Upsert(db, broad, narrow, dedupe(items), ""); err != nil {
 				fmt.Fprintf(os.Stderr, "insert %s/%s: %v\n", broad, narrow, err)
 				os.Exit(1)
 			}
