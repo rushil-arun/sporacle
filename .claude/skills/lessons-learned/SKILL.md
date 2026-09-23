@@ -39,4 +39,15 @@ or anything already obvious from reading the code/CLAUDE.md.
 
 ## Entries
 
-_(none yet)_
+### 2026-09-22: trivia.db needs `deploy.sh --trivia`, not just a plain deploy
+**What happened:** After migrating trivia data from `trivia/*.json` to `trivia/trivia.db`
+(SQLite, read via `server/triviadb`), a deploy that only rebuilds/uploads the binary
+would leave the EC2 instance's `/opt/sporacle/trivia` without `trivia.db` — the server
+would have no categories to serve even though the binary itself is up to date.
+**Root cause:** `scripts/deploy.sh` only syncs the `trivia/` directory (which now
+contains `trivia.db`, the actual runtime data source) when passed `--trivia`; a plain
+`scripts/deploy.sh` only ships the binary.
+**Do instead:** Any deploy after a change to `trivia/trivia.db` (schema, seed data, or
+first-time migration) must use `scripts/deploy.sh --trivia`. If `trivia.db` ever stops
+being committed to git, this becomes required on *every* deploy, not just ones that
+touch trivia data.
