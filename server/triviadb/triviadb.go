@@ -6,11 +6,16 @@ package triviadb
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
+
+// ErrDuplicateCategory is returned by Create when narrow already exists.
+var ErrDuplicateCategory = errors.New("narrow category already exists")
 
 // FileName is the SQLite database file name, stored alongside the trivia/*.json seed files.
 const FileName = "trivia.db"
@@ -89,8 +94,59 @@ func NarrowCategories(db *sql.DB, broad string) []string {
 	return out
 }
 
-// Insert adds a new category, or replaces the existing one with the same narrow_category.
-func Insert(db *sql.DB, broad, narrow string, items []string, createdBy string) error {
+// SearchBroadCategories returns distinct broad categories containing query (case-insensitive), sorted, capped at limit.
+func SearchBroadCategories(db *sql.DB, query string, limit int) []string {
+	rows, err := db.Query(
+		`SELECT DISTINCT broad_category FROM categories WHERE broad_category LIKE ? ESCAPE '\' ORDER BY broad_category LIMIT ?`,
+		"%"+escapeLike(query)+"%", limit,
+	)
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var b string
+		if rows.Scan(&b) == nil {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// SearchNarrowCategories returns narrow categories (titles) containing query (case-insensitive),
+// across all broad categories, sorted, capped at limit.
+func SearchNarrowCategories(db *sql.DB, query string, limit int) []string {
+	rows, err := db.Query(
+		`SELECT narrow_category FROM categories WHERE narrow_category LIKE ? ESCAPE '\' ORDER BY narrow_category LIMIT ?`,
+		"%"+escapeLike(query)+"%", limit,
+	)
+	if err != nil {
+		return []string{}
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// escapeLike escapes SQL LIKE wildcard characters in a user-supplied search string.
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(s)
+}
+
+// Upsert adds a new category, or replaces the existing one with the same narrow_category.
+// Used only by the trivia/*.json seed migration (make db-migrate); user-facing category
+// creation must use Create instead, which never silently overwrites an existing category.
+func Upsert(db *sql.DB, broad, narrow string, items []string, createdBy string) error {
 	itemsJSON, err := json.Marshal(items)
 	if err != nil {
 		return err
@@ -104,7 +160,26 @@ func Insert(db *sql.DB, broad, narrow string, items []string, createdBy string) 
 		broad, narrow, string(itemsJSON), createdBy,
 	)
 	if err != nil {
-		return fmt.Errorf("insert category %q/%q: %w", broad, narrow, err)
+		return fmt.Errorf("upsert category %q/%q: %w", broad, narrow, err)
+	}
+	return nil
+}
+
+// Create adds a new category. Returns ErrDuplicateCategory if narrow already exists.
+func Create(db *sql.DB, broad, narrow string, items []string, createdBy string) error {
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(
+		`INSERT INTO categories (broad_category, narrow_category, items, created_by) VALUES (?, ?, ?, ?)`,
+		broad, narrow, string(itemsJSON), createdBy,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return ErrDuplicateCategory
+		}
+		return fmt.Errorf("create category %q/%q: %w", broad, narrow, err)
 	}
 	return nil
 }
