@@ -1,14 +1,12 @@
 package state
 
 import (
-	"encoding/json"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"sync"
 
 	game "server/game"
 	"server/shared"
+	"server/triviadb"
 )
 
 const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -131,30 +129,15 @@ func (state *GlobalState) CanJoin(code, username string) (bool, bool) {
 }
 
 // TriviaBasePath is the path to the trivia directory (relative to server when run from server/).
+// It holds the trivia.db SQLite database (see server/triviadb) alongside the trivia/*.json seed files.
 var TriviaBasePath = "../trivia"
 
-// loadTriviaItems finds title in any trivia/*.json and returns the list of items, or nil.
+// loadTriviaItems looks up title as a narrow category in trivia.db and returns its items, or nil.
 func loadTriviaItems(title string) []string {
-	entries, err := os.ReadDir(TriviaBasePath)
+	db, err := triviadb.Open(TriviaBasePath)
 	if err != nil {
 		return nil
 	}
-	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-			continue
-		}
-		path := filepath.Join(TriviaBasePath, e.Name())
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var obj map[string][]string
-		if json.Unmarshal(data, &obj) != nil {
-			continue
-		}
-		if items, ok := obj[title]; ok {
-			return items
-		}
-	}
-	return nil
+	defer db.Close()
+	return triviadb.Items(db, title)
 }
