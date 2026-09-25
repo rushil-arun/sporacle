@@ -25,7 +25,7 @@ func setupGameWithConn(t *testing.T) (*game.Manager, string, *websocket.Conn, *g
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := globalState.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -61,6 +61,32 @@ func setupGameWithConn(t *testing.T) (*game.Manager, string, *websocket.Conn, *g
 	return m, code, conn, player
 }
 
+// startGameAndDrain sends a start-game request as the given (host) username and
+// reads messages off conn until the "Start" event arrives.
+func startGameAndDrain(t *testing.T, conn *websocket.Conn, code, username string) {
+	t.Helper()
+	req := map[string]interface{}{
+		"username":  username,
+		"code":      code,
+		"StartGame": true,
+	}
+	if err := conn.WriteJSON(req); err != nil {
+		t.Fatalf("WriteJSON start request: %v", err)
+	}
+	for {
+		var msg map[string]interface{}
+		if err := conn.ReadJSON(&msg); err != nil {
+			t.Fatalf("ReadJSON: %v", err)
+		}
+		if msg["Type"] == "Start" {
+			return
+		}
+		if msg["Type"] == "error" {
+			t.Fatalf("unexpected error: %v", msg)
+		}
+	}
+}
+
 func TestWrite_SendsEventsToWebSocket(t *testing.T) {
 	m, code, conn, _ := setupGameWithConn(t)
 	defer conn.Close()
@@ -68,19 +94,7 @@ func TestWrite_SendsEventsToWebSocket(t *testing.T) {
 	// Start Run() so Read/Write routines run (Run calls StartRoutines)
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
-	for {
-		var msg map[string]interface{}
-		if err := conn.ReadJSON(&msg); err != nil {
-			t.Fatalf("ReadJSON: %v", err)
-		}
-		if msg["Type"] == "Start" {
-			break
-		}
-		if msg["Type"] == "error" {
-			t.Fatalf("unexpected error: %v", msg)
-		}
-	}
+	startGameAndDrain(t, conn, code, "LeBron")
 	// Write a message into the connection (as client would); Read() picks it up,
 	// Run() processes it and BroadcastState, Write() sends the response back.
 	req := map[string]string{
@@ -113,19 +127,7 @@ func TestRead_ValidRequestAppearsOnInboundRequests(t *testing.T) {
 
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
-	for {
-		var msg map[string]interface{}
-		if err := conn.ReadJSON(&msg); err != nil {
-			t.Fatalf("ReadJSON: %v", err)
-		}
-		if msg["Type"] == "Start" {
-			break
-		}
-		if msg["Type"] == "error" {
-			t.Fatalf("unexpected error: %v", msg)
-		}
-	}
+	startGameAndDrain(t, conn, code, "LeBron")
 
 	req := map[string]string{
 		"username": "LeBron",
@@ -171,19 +173,7 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
-	for {
-		var msg map[string]interface{}
-		if err := conn.ReadJSON(&msg); err != nil {
-			t.Fatalf("ReadJSON: %v", err)
-		}
-		if msg["Type"] == "Start" {
-			break
-		}
-		if msg["Type"] == "error" {
-			t.Fatalf("unexpected error: %v", msg)
-		}
-	}
+	startGameAndDrain(t, conn, code, "LeBron")
 
 	// Send valid request first so we know Read is processing
 	validReq := map[string]string{"username": "LeBron", "code": code, "Item": "Olympia"}
@@ -292,7 +282,7 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", 2, 2)
+	m := globalState.Create("US Capitals", 2)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -319,26 +309,7 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	// Start Run (player already connected, so StartRoutines will pick them up)
 	go m.Run()
 
-	// Drain messages until we get "Start" (game started). Timer fires every 60ns so this is fast.
-	for {
-		var msg map[string]interface{}
-		if err := conn.ReadJSON(&msg); err != nil {
-			t.Fatalf("ReadJSON: %v", err)
-		}
-		if msg["Type"] == "Start" {
-			break
-		}
-		// Also break on error
-		if msg["Type"] == "error" {
-			t.Fatalf("unexpected error: %v", msg)
-		}
-		// Avoid infinite loop if something is wrong
-		if msg["Type"] == "Time" {
-			if tl, ok := msg["TimeLeft"].(float64); ok && tl < 0 {
-				t.Fatal("got TimeLeft < 0 before Start")
-			}
-		}
-	}
+	startGameAndDrain(t, conn, code, "Steph")
 
 	// Send a valid claim
 	req := map[string]string{"username": "Steph", "code": code, "Item": "Sacramento"}

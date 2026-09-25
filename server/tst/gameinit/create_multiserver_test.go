@@ -38,7 +38,7 @@ func TestCreateHandler_MultiServer_SelfAssigned(t *testing.T) {
 	rediscoord.RegisterServer(ctx, rdb, "localhost:8080")
 
 	gs := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(gs, rdb, "localhost:8080", rec, req)
@@ -84,7 +84,7 @@ func TestCreateHandler_MultiServer_ForwardToOther(t *testing.T) {
 	rdb.ZIncrBy(ctx, rediscoord.ServerLoadZSet, 10, "localhost:8080")
 
 	gs := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(gs, rdb, "localhost:8080", rec, req)

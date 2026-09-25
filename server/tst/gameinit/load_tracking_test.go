@@ -27,7 +27,7 @@ func TestConnect_LoadTracking(t *testing.T) {
 	rediscoord.RegisterServer(ctx, rdb, selfAddr)
 
 	gs := state.NewGlobalState()
-	m := gs.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := gs.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
