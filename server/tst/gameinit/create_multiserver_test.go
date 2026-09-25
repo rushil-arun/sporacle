@@ -75,7 +75,7 @@ func TestCreateHandler_MultiServer_ForwardToOther(t *testing.T) {
 	otherAddr := otherServer.Listener.Addr().String()
 
 	otherMux.HandleFunc("/internal/create-game", func(w http.ResponseWriter, r *http.Request) {
-		gameinit.InternalCreateHandler(otherGs, otherAddr, w, r)
+		gameinit.InternalCreateHandler(otherGs, rdb, otherAddr, w, r)
 	})
 
 	// Register self with high load and other with zero load so other is chosen.

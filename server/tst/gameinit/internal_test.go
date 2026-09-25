@@ -27,7 +27,7 @@ func TestInternalCreateHandler_Success(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/internal/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.InternalCreateHandler(globalState, testServerAddr, rec, req)
+	gameinit.InternalCreateHandler(globalState, nil, testServerAddr, rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
@@ -49,7 +49,7 @@ func TestInternalCreateHandler_MethodNotAllowed(t *testing.T) {
 	globalState := state.NewGlobalState()
 	req := httptest.NewRequest(http.MethodGet, "/internal/create-game", nil)
 	rec := httptest.NewRecorder()
-	gameinit.InternalCreateHandler(globalState, testServerAddr, rec, req)
+	gameinit.InternalCreateHandler(globalState, nil, testServerAddr, rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected 405, got %d", rec.Code)
 	}
@@ -64,7 +64,7 @@ func TestInternalCreateHandler_InvalidTitle(t *testing.T) {
 	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/internal/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
-	gameinit.InternalCreateHandler(globalState, testServerAddr, rec, req)
+	gameinit.InternalCreateHandler(globalState, nil, testServerAddr, rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rec.Code)
 	}

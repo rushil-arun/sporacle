@@ -25,6 +25,7 @@ var PlayerColors = []string{
 type Manager struct {
 	Title           string              // name of the game; key into trivia/*.json
 	Code            string              // unique game code, 6 uppercase letters/numbers
+	Creator         string              // username of the first player to join (used for the lobby list)
 	Players         map[string]*Player  // maps player usernames to player objects
 	Board           map[string]*Player  // category item -> player who claimed it (nil if unclaimed)
 	Colors          map[string]struct{} // set of assigned colors
@@ -35,7 +36,36 @@ type Manager struct {
 	SquaresTaken    int
 	LobbyTime       int
 	GameTime        int
-	mu              sync.RWMutex
+	// OnGameStart, if set, is called once when the lobby phase ends and the game
+	// starts. Set it before Run() is started as a goroutine; it is only ever read
+	// and invoked from within Run(), so no further synchronization is needed.
+	OnGameStart func()
+	mu          sync.RWMutex
+}
+
+// LobbySnapshot is a point-in-time, read-only view of a game still in its lobby
+// phase, suitable for listing in the "available lobbies" UI.
+type LobbySnapshot struct {
+	Code     string `json:"code"`
+	Title    string `json:"title"`
+	Creator  string `json:"creator"`
+	TimeLeft int    `json:"timeLeft"`
+}
+
+// Snapshot returns a LobbySnapshot for this game, and false if the game has
+// already started (and so should no longer be listed as joinable).
+func (m *Manager) Snapshot() (LobbySnapshot, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.GameStarted {
+		return LobbySnapshot{}, false
+	}
+	return LobbySnapshot{
+		Code:     m.Code,
+		Title:    m.Title,
+		Creator:  m.Creator,
+		TimeLeft: m.Time,
+	}, true
 }
 
 type LeaderboardEntry struct {
@@ -168,6 +198,9 @@ func (m *Manager) Run() {
 						m.Correct[p] = 0
 					}
 					m.BroadcastStartGame()
+					if m.OnGameStart != nil {
+						m.OnGameStart()
+					}
 
 				} else {
 					// TODO: Need to send a winner here
