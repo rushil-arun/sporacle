@@ -36,31 +36,36 @@ export const Home: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-col gap-3 w-full max-w-[220px]">
-          <button
-            className="btn-primary text-sm"
-            onClick={() => navigate('/join')}
-          >
-            Join Game
-          </button>
-          <button
-            className="btn-secondary text-sm"
-            onClick={() => navigate('/create')}
-          >
-            Create Game
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
-            onClick={() => navigate('/lobbies')}
-          >
-            Available Lobbies
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
-            onClick={() => navigate('/create-template')}
-          >
-            Create Game Template
-          </button>
+        <div className="flex flex-col gap-5 w-full max-w-[220px]">
+          <div className="flex flex-col items-center gap-1.5">
+            <button
+              className="btn-primary text-sm w-full"
+              onClick={() => navigate('/join')}
+            >
+              Join Lobby
+            </button>
+            <button
+              className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+              onClick={() => navigate('/lobbies')}
+            >
+              Available Lobbies
+            </button>
+          </div>
+
+          <div className="flex flex-col items-center gap-1.5">
+            <button
+              className="btn-secondary text-sm w-full"
+              onClick={() => navigate('/create')}
+            >
+              Create Lobby
+            </button>
+            <button
+              className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+              onClick={() => navigate('/create-template')}
+            >
+              Create Game Template
+            </button>
+          </div>
         </div>
       </div>
     </div>

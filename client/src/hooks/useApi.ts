@@ -33,7 +33,7 @@ export const useCreateGame = () => {
       const axiosError = err as AxiosError<CreateGameError>;
       const errorMessage =
         axiosError.response?.data?.error ||
-        'Failed to create game';
+        'Failed to create lobby';
       setError(errorMessage);
       return null;
     } finally {
