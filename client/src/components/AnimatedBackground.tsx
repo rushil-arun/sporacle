@@ -20,23 +20,6 @@ const AnimatedBackground = () => {
         preserveAspectRatio="xMidYMid slice"
         className="absolute inset-0 w-full h-full"
       >
-        <defs>
-          <filter id="glow-soft">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="glow-mid">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
         <g style={{ animation: 'drift-up 20s ease-in-out infinite' }}>
           <path
             d="M -200 210 C 150 90, 480 370, 780 200 C 1080 30, 1300 280, 1640 170"
@@ -45,7 +28,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.2"
             strokeOpacity="0.45"
             strokeDasharray="780 1820"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-a 13s linear infinite' }}
           />
           <path
@@ -67,7 +49,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.4"
             strokeOpacity="0.40"
             strokeDasharray="820 1980"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-b 16s linear infinite -3s' }}
           />
           <path
@@ -89,7 +70,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.3"
             strokeOpacity="0.42"
             strokeDasharray="760 2040"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-c 15s linear infinite -7s' }}
           />
           <path
@@ -111,7 +91,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.2"
             strokeOpacity="0.38"
             strokeDasharray="650 1850"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-d 17s linear infinite -1s' }}
           />
         </g>
@@ -124,7 +103,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.2"
             strokeOpacity="0.36"
             strokeDasharray="680 1920"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-b 19s linear infinite -9s' }}
           />
         </g>
@@ -137,7 +115,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.0"
             strokeOpacity="0.32"
             strokeDasharray="700 2100"
-            filter="url(#glow-mid)"
             style={{ animation: 'flow-a 21s linear infinite -5s' }}
           />
         </g>
@@ -150,7 +127,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.0"
             strokeOpacity="0.30"
             strokeDasharray="600 2200"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-c 12s linear infinite -8s' }}
           />
         </g>
@@ -163,7 +139,6 @@ const AnimatedBackground = () => {
             strokeWidth="1.1"
             strokeOpacity="0.30"
             strokeDasharray="580 2020"
-            filter="url(#glow-soft)"
             style={{ animation: 'flow-d 14s linear infinite -12s' }}
           />
         </g>
