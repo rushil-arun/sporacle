@@ -30,3 +30,17 @@ type WSURLResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+// LobbyResponse describes one joinable (not-yet-started) game for the
+// "available lobbies" listing.
+type LobbyResponse struct {
+	Code     string `json:"code"`
+	Title    string `json:"title"`
+	Creator  string `json:"creator"`
+	TimeLeft int    `json:"timeLeft"`
+}
+
+// LobbiesResponse is the JSON response for GET /lobbies.
+type LobbiesResponse struct {
+	Lobbies []LobbyResponse `json:"lobbies"`
+}

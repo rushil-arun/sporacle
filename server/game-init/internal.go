@@ -6,14 +6,16 @@ import (
 
 	"server/shared"
 	state "server/state"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // InternalCreateHandler handles POST /internal/create-game.
 // It creates the game on this server without consulting Redis for routing,
 // so it is safe to call from another server's forwarding logic without looping.
 // If the request body includes a non-empty "code" field, that code is used directly;
-// otherwise a new code is generated.
-func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w http.ResponseWriter, r *http.Request) {
+// otherwise a new code is generated. rdb may be nil in single-server mode/tests.
+func InternalCreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -40,6 +42,7 @@ func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w 
 			return
 		}
 		code = m.Code
+		registerLobby(rdb, m, serverAddr)
 		go func() {
 			defer globalState.RemoveGame(m.Code)
 			m.Run()
@@ -51,6 +54,7 @@ func InternalCreateHandler(globalState *state.GlobalState, serverAddr string, w 
 			return
 		}
 		code = m.Code
+		registerLobby(rdb, m, serverAddr)
 		go func() {
 			defer globalState.RemoveGame(m.Code)
 			m.Run()

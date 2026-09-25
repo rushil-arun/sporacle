@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	game "server/game"
 	rediscoord "server/redis"
@@ -75,10 +76,12 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 			writeError(w, http.StatusBadRequest, "Invalid title")
 			return
 		}
+		registerLobby(rdb, m, serverAddr)
 		go func() {
 			defer func() {
 				globalState.RemoveGame(m.Code)
 				rediscoord.RemoveGame(context.Background(), rdb, m.Code)
+				rediscoord.RemoveLobbyInfo(context.Background(), rdb, m.Code)
 			}()
 			m.Run()
 		}()
@@ -179,10 +182,20 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 		return
 	}
 
+	isFirstPlayer := len(m.Players) == 0
+
 	color := m.AssignColorLocked()
 	player := game.NewPlayer(username, conn, color, code)
 	// this will start routines for the player
 	m.AddPlayerLocked(username, player)
+
+	if isFirstPlayer {
+		m.Creator = username
+		if rdb != nil {
+			go rediscoord.SetLobbyCreator(context.Background(), rdb, m.Code, username)
+		}
+	}
+
 	conn.WriteJSON(map[string]string{
 		"type":    shared.WSHandshakeSuccess,
 		"message": m.Title,
@@ -195,6 +208,74 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 			rediscoord.DecrLoad(context.Background(), rdb, serverAddr)
 		}()
 	}
+}
+
+// registerLobby stores m's metadata in the cluster-wide open_lobbies hash and
+// arranges for that entry to be removed as soon as the lobby phase ends, so
+// LobbiesHandler can serve a listing without querying other servers directly.
+// No-op when rdb is nil (single-server mode lists games from globalState directly).
+func registerLobby(rdb *redis.Client, m *game.Manager, serverAddr string) {
+	if rdb == nil {
+		return
+	}
+	rediscoord.SetLobbyInfo(context.Background(), rdb, rediscoord.LobbyInfo{
+		Code:        m.Code,
+		Title:       m.Title,
+		ServerAddr:  serverAddr,
+		LobbyEndsAt: time.Now().Unix() + int64(m.LobbyTime),
+	})
+	m.OnGameStart = func() {
+		rediscoord.RemoveLobbyInfo(context.Background(), rdb, m.Code)
+	}
+}
+
+// LobbiesHandler handles GET /lobbies: lists every joinable (not-yet-started) game.
+// In single-server mode (rdb nil) this reads directly from globalState; in
+// multi-server mode it reads the cluster-wide open_lobbies hash in Redis, which
+// every server keeps up to date for the games it hosts.
+func LobbiesHandler(globalState *state.GlobalState, rdb *redis.Client, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if rdb == nil {
+		snaps := globalState.ListOpenLobbies()
+		lobbies := make([]LobbyResponse, 0, len(snaps))
+		for _, s := range snaps {
+			lobbies = append(lobbies, LobbyResponse{
+				Code:     s.Code,
+				Title:    s.Title,
+				Creator:  s.Creator,
+				TimeLeft: s.TimeLeft,
+			})
+		}
+		writeJSON(w, http.StatusOK, LobbiesResponse{Lobbies: lobbies})
+		return
+	}
+
+	infos, err := rediscoord.ListLobbies(r.Context(), rdb)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list lobbies")
+		return
+	}
+	now := time.Now().Unix()
+	lobbies := make([]LobbyResponse, 0, len(infos))
+	for _, info := range infos {
+		timeLeft := int(info.LobbyEndsAt - now)
+		if timeLeft <= 0 {
+			// Stale entry (e.g. the owning server crashed before it could clean
+			// up); skip rather than advertise an already-past-due lobby.
+			continue
+		}
+		lobbies = append(lobbies, LobbyResponse{
+			Code:     info.Code,
+			Title:    info.Title,
+			Creator:  info.Creator,
+			TimeLeft: timeLeft,
+		})
+	}
+	writeJSON(w, http.StatusOK, LobbiesResponse{Lobbies: lobbies})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

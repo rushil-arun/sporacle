@@ -25,6 +25,9 @@ func RegisterRoutes(mux *http.ServeMux, globalState *state.GlobalState, rdb *red
 		Connect(globalState, rdb, serverAddr, w, r)
 	})
 	mux.HandleFunc("/internal/create-game", func(w http.ResponseWriter, r *http.Request) {
-		InternalCreateHandler(globalState, serverAddr, w, r)
+		InternalCreateHandler(globalState, rdb, serverAddr, w, r)
+	})
+	mux.HandleFunc("/lobbies", func(w http.ResponseWriter, r *http.Request) {
+		LobbiesHandler(globalState, rdb, w, r)
 	})
 }

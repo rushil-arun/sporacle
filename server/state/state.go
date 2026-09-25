@@ -95,6 +95,20 @@ func (s *GlobalState) RemoveGame(code string) {
 	delete(s.games, code)
 }
 
+// ListOpenLobbies returns a snapshot of every locally-hosted game that hasn't
+// started yet, for the "available lobbies" listing.
+func (s *GlobalState) ListOpenLobbies() []game.LobbySnapshot {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	lobbies := make([]game.LobbySnapshot, 0, len(s.games))
+	for _, m := range s.games {
+		if snap, open := m.Snapshot(); open {
+			lobbies = append(lobbies, snap)
+		}
+	}
+	return lobbies
+}
+
 // Create checks code and title, then creates a new Manager with board keys from trivia.
 // Returns nil if code already exists or title is not found in trivia.
 func (state *GlobalState) Create(title string, lobbyTime, gameTime int) *game.Manager {
