@@ -42,9 +42,23 @@ export const Lobbies: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLobbies is stable
   }, []);
 
+  // Tick the displayed countdowns down locally every second between polls,
+  // so they don't sit frozen for up to POLL_INTERVAL_MS at a time.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setLobbies((prev) =>
+        prev.map((lobby) => ({
+          ...lobby,
+          timeLeft: Math.max(0, lobby.timeLeft - 1),
+        }))
+      );
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
   const handleJoin = (code: string) => {
     setCode(code);
-    navigate('/join');
+    navigate('/join', { state: { from: 'lobbies' } });
   };
 
   return (

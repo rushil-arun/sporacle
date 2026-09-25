@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
@@ -8,6 +8,8 @@ import { CodeLength, WSHandshakeError, WSHandshakeSuccess } from '@/lib/constant
 
 export const Join: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const cameFromLobbies = location.state?.from === 'lobbies';
   const { username, setUsername, code, setCode, setWsUrl, setWs, setTitle } = useGame();
   const { getWsUrl, loading, error } = useGetWsUrl();
 
@@ -126,7 +128,7 @@ export const Join: React.FC = () => {
 
       <div className="relative z-10 w-full max-w-sm px-4 animate-fade-up">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(cameFromLobbies ? '/lobbies' : '/')}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm mb-6 font-body"
         >
           <ArrowLeft className="w-4 h-4" />
