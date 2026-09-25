@@ -250,6 +250,42 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 
 }
 
+func TestChat_BroadcastDuringLobby(t *testing.T) {
+	m, code, conn, _ := setupGameWithConn(t)
+	defer conn.Close()
+
+	go m.Run()
+
+	req := map[string]string{
+		"username": "LeBron",
+		"code":     code,
+		"Message":  "hello lobby",
+	}
+	if err := conn.WriteJSON(req); err != nil {
+		t.Fatalf("WriteJSON: %v", err)
+	}
+
+	iters := 10
+	for range iters {
+		var got map[string]interface{}
+		if err := conn.ReadJSON(&got); err != nil {
+			t.Fatalf("ReadJSON response: %v", err)
+		}
+		if got["Type"] != "Chat" {
+			continue
+		}
+		chat, ok := got["Chat"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected Chat payload, got %v", got["Chat"])
+		}
+		if chat["username"] != "LeBron" || chat["text"] != "hello lobby" {
+			t.Fatalf("unexpected chat payload: %v", chat)
+		}
+		return
+	}
+	t.Errorf("Did not receive a Chat message in %d iters", iters)
+}
+
 func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	saved := state.TriviaBasePath
 	state.TriviaBasePath = testTriviaPath

@@ -6,6 +6,7 @@ export const CodeLength = 6;
 export const GameOverSentinel = 'GAME_OVER';
 export const MinPhaseSeconds = 10;
 export const WSEventBoard = 'Board';
+export const WSEventChat = 'Chat';
 export const WSEventLeaderboard = 'Leaderboard';
 export const WSEventPlayers = 'Players';
 export const WSEventStart = 'Start';

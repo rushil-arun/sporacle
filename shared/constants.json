@@ -1,5 +1,6 @@
 {
   "WSEventBoard": "Board",
+  "WSEventChat": "Chat",
   "WSEventLeaderboard": "Leaderboard",
   "WSEventPlayers": "Players",
   "WSEventStart": "Start",

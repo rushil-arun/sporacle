@@ -9,6 +9,7 @@ const (
 	GameOverSentinel   = "GAME_OVER"
 	MinPhaseSeconds    = 10
 	WSEventBoard       = "Board"
+	WSEventChat        = "Chat"
 	WSEventLeaderboard = "Leaderboard"
 	WSEventPlayers     = "Players"
 	WSEventStart       = "Start"
