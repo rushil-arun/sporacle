@@ -29,14 +29,14 @@ func InternalCreateHandler(globalState *state.GlobalState, rdb *redis.Client, se
 		writeError(w, http.StatusBadRequest, "title required")
 		return
 	}
-	if req.LobbyTime < shared.MinPhaseSeconds || req.GameTime < shared.MinPhaseSeconds {
-		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
+	if req.GameTime < shared.MinPhaseSeconds {
+		writeError(w, http.StatusBadRequest, "Must have at least 10s for the game")
 		return
 	}
 
 	var code string
 	if req.Code != "" {
-		m := globalState.CreateWithCode(req.Title, req.Code, req.LobbyTime, req.GameTime)
+		m := globalState.CreateWithCode(req.Title, req.Code, req.GameTime)
 		if m == nil {
 			writeError(w, http.StatusBadRequest, "Invalid title")
 			return
@@ -48,7 +48,7 @@ func InternalCreateHandler(globalState *state.GlobalState, rdb *redis.Client, se
 			m.Run()
 		}()
 	} else {
-		m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
+		m := globalState.Create(req.Title, req.GameTime)
 		if m == nil {
 			writeError(w, http.StatusBadRequest, "Invalid title")
 			return

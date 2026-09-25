@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	game "server/game"
 	rediscoord "server/redis"
@@ -38,14 +37,14 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 		return
 	}
 	fmt.Println(req)
-	if req.LobbyTime < shared.MinPhaseSeconds || req.GameTime < shared.MinPhaseSeconds {
-		writeError(w, http.StatusBadRequest, "Must have at least 10s for lobby/game")
+	if req.GameTime < shared.MinPhaseSeconds {
+		writeError(w, http.StatusBadRequest, "Must have at least 10s for the game")
 		return
 	}
 
 	if rdb == nil {
 		// Single-server mode: original behaviour.
-		m := globalState.Create(req.Title, req.LobbyTime, req.GameTime)
+		m := globalState.Create(req.Title, req.GameTime)
 		if m == nil {
 			writeError(w, http.StatusBadRequest, "Invalid title")
 			return
@@ -70,7 +69,7 @@ func CreateHandler(globalState *state.GlobalState, rdb *redis.Client, serverAddr
 	}
 
 	if chosenServer == serverAddr {
-		m := globalState.CreateWithCode(req.Title, code, req.LobbyTime, req.GameTime)
+		m := globalState.CreateWithCode(req.Title, code, req.GameTime)
 		if m == nil {
 			rediscoord.RemoveGame(context.Background(), rdb, code)
 			writeError(w, http.StatusBadRequest, "Invalid title")
@@ -219,10 +218,9 @@ func registerLobby(rdb *redis.Client, m *game.Manager, serverAddr string) {
 		return
 	}
 	rediscoord.SetLobbyInfo(context.Background(), rdb, rediscoord.LobbyInfo{
-		Code:        m.Code,
-		Title:       m.Title,
-		ServerAddr:  serverAddr,
-		LobbyEndsAt: time.Now().Unix() + int64(m.LobbyTime),
+		Code:       m.Code,
+		Title:      m.Title,
+		ServerAddr: serverAddr,
 	})
 	m.OnGameStart = func() {
 		rediscoord.RemoveLobbyInfo(context.Background(), rdb, m.Code)
@@ -244,10 +242,9 @@ func LobbiesHandler(globalState *state.GlobalState, rdb *redis.Client, w http.Re
 		lobbies := make([]LobbyResponse, 0, len(snaps))
 		for _, s := range snaps {
 			lobbies = append(lobbies, LobbyResponse{
-				Code:     s.Code,
-				Title:    s.Title,
-				Creator:  s.Creator,
-				TimeLeft: s.TimeLeft,
+				Code:    s.Code,
+				Title:   s.Title,
+				Creator: s.Creator,
 			})
 		}
 		writeJSON(w, http.StatusOK, LobbiesResponse{Lobbies: lobbies})
@@ -259,20 +256,12 @@ func LobbiesHandler(globalState *state.GlobalState, rdb *redis.Client, w http.Re
 		writeError(w, http.StatusInternalServerError, "failed to list lobbies")
 		return
 	}
-	now := time.Now().Unix()
 	lobbies := make([]LobbyResponse, 0, len(infos))
 	for _, info := range infos {
-		timeLeft := int(info.LobbyEndsAt - now)
-		if timeLeft <= 0 {
-			// Stale entry (e.g. the owning server crashed before it could clean
-			// up); skip rather than advertise an already-past-due lobby.
-			continue
-		}
 		lobbies = append(lobbies, LobbyResponse{
-			Code:     info.Code,
-			Title:    info.Title,
-			Creator:  info.Creator,
-			TimeLeft: timeLeft,
+			Code:    info.Code,
+			Title:   info.Title,
+			Creator: info.Creator,
 		})
 	}
 	writeJSON(w, http.StatusOK, LobbiesResponse{Lobbies: lobbies})

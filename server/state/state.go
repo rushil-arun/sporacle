@@ -59,12 +59,12 @@ func (s *GlobalState) GenerateCode() string {
 
 // CreateWithCode creates a game with the provided code rather than generating one.
 // Returns nil if the title is invalid. Does not check whether the code is already in use.
-func (s *GlobalState) CreateWithCode(title, code string, lobbyTime, gameTime int) *game.Manager {
+func (s *GlobalState) CreateWithCode(title, code string, gameTime int) *game.Manager {
 	items := loadTriviaItems(title)
 	if items == nil {
 		return nil
 	}
-	m := game.NewManager(title, code, lobbyTime, gameTime)
+	m := game.NewManager(title, code, gameTime)
 	for _, item := range items {
 		m.Board[item] = nil
 	}
@@ -111,7 +111,7 @@ func (s *GlobalState) ListOpenLobbies() []game.LobbySnapshot {
 
 // Create checks code and title, then creates a new Manager with board keys from trivia.
 // Returns nil if code already exists or title is not found in trivia.
-func (state *GlobalState) Create(title string, lobbyTime, gameTime int) *game.Manager {
+func (state *GlobalState) Create(title string, gameTime int) *game.Manager {
 	state.mu.Lock()
 	items := loadTriviaItems(title)
 	if items == nil {
@@ -119,7 +119,7 @@ func (state *GlobalState) Create(title string, lobbyTime, gameTime int) *game.Ma
 		return nil
 	}
 	code := state.generateCode()
-	m := game.NewManager(title, code, lobbyTime, gameTime)
+	m := game.NewManager(title, code, gameTime)
 	for _, item := range items {
 		m.Board[item] = nil
 	}

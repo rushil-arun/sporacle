@@ -2,9 +2,8 @@ package gameinit
 
 // CreateRequest is the JSON body for /create-game and /internal/create-game.
 type CreateRequest struct {
-	Title     string `json:"title"`
-	LobbyTime int    `json:"lobbyTime"`
-	GameTime  int    `json:"gameTime"`
+	Title    string `json:"title"`
+	GameTime int    `json:"gameTime"`
 	// Code is set when a receiving server forwards the request to ensure the game
 	// is created with the code already registered in Redis.
 	Code string `json:"code,omitempty"`
@@ -34,10 +33,9 @@ type ErrorResponse struct {
 // LobbyResponse describes one joinable (not-yet-started) game for the
 // "available lobbies" listing.
 type LobbyResponse struct {
-	Code     string `json:"code"`
-	Title    string `json:"title"`
-	Creator  string `json:"creator"`
-	TimeLeft int    `json:"timeLeft"`
+	Code    string `json:"code"`
+	Title   string `json:"title"`
+	Creator string `json:"creator"`
 }
 
 // LobbiesResponse is the JSON response for GET /lobbies.

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
 import { useNavigate } from 'react-router-dom';
-import { WSEventTime, WSEventPlayers, WSEventStart, WSEventChat } from '@/lib/constants';
+import { WSEventPlayers, WSEventStart, WSEventChat } from '@/lib/constants';
 import type { ChatMessage } from '@/types/types';
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -48,10 +48,10 @@ function getFloatStyle(index: number, total: number) {
 
 export const Lobby: React.FC = () => {
   const navigate = useNavigate();
-  const { ws, username, code, title, timeLeft, setTimeLeft } = useGame();
+  const { ws, username, code, title, setTimeLeft } = useGame();
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
+  const [creator, setCreator] = useState('');
   const [copied, setCopied] = useState(false);
-  const [initialTime, setInitialTime] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,12 +63,7 @@ export const Lobby: React.FC = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.Type === WSEventTime) {
-          if (initialTime == 0) {
-            setInitialTime(message.TimeLeft)
-          }
-          setTimeLeft(message.TimeLeft);
-        } else if (message.Type === WSEventPlayers) {
+        if (message.Type === WSEventPlayers) {
           setPlayers((prev) => {
             const updated = new Map(prev);
             for (const [username, playerData] of Object.entries(message.Players)) {
@@ -80,6 +75,9 @@ export const Lobby: React.FC = () => {
             }
             return updated;
           });
+          if (typeof message.Creator === 'string') {
+            setCreator(message.Creator);
+          }
         } else if (message.Type === WSEventChat) {
           const chat = message.Chat as ChatMessage;
           setChatMessages((prev) => [...prev, chat]);
@@ -88,7 +86,6 @@ export const Lobby: React.FC = () => {
             return open;
           });
         } else if (message.Type === WSEventStart) {
-          // Game hasn't been developed yet — return to home screen
           ws.onmessage = null
           setTimeLeft(0);
           navigate('/game')
@@ -123,6 +120,13 @@ export const Lobby: React.FC = () => {
     setChatInput('');
   };
 
+  const isHost = !!username && username === creator;
+
+  const startGame = () => {
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ username, code, StartGame: true }));
+  };
+
   return (
     
     <div className="relative min-h-screen flex flex-col items-center overflow-hidden">
@@ -153,18 +157,20 @@ export const Lobby: React.FC = () => {
               )}
             </button>
 
-            {/* Countdown */}
-            <div className="flex flex-col items-end gap-1 min-w-[120px]">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Starting in
+            {/* Start control */}
+            {isHost ? (
+              <button
+                onClick={startGame}
+                disabled={players.size === 0}
+                className="btn-primary text-sm px-4 py-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Start Game
+              </button>
+            ) : (
+              <span className="text-xs text-muted-foreground text-right max-w-[140px]">
+                Waiting for host to start…
               </span>
-              <div className="flex items-baseline gap-1">
-                <span className="font-display text-3xl font-bold text-foreground tabular-nums" style={{color: (timeLeft !== null && timeLeft <= 3) ? "red" : ""}}>
-                  {timeLeft > 0 ? timeLeft : ""}
-                </span>
-                <span className="text-sm text-muted-foreground">s</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Player count */}
