@@ -63,3 +63,7 @@ VITE_SERVER_BASE_URL=http://localhost:8080
 > **Note:** if `VITE_SERVER_URLS` is also set (a comma-separated list, used for load-balancing across multiple backend instances), it takes priority over `VITE_SERVER_BASE_URL` — see `client/src/lib/serverPool.ts`. `pickRandomServer()` picks randomly among *every* URL in that list for each API call, so if it includes a port with nothing listening on it, requests will intermittently fail (e.g. trivia categories failing to load). For a single local backend, leave `VITE_SERVER_URLS` unset or make sure every URL in it is actually running.
 
 Open the Vite dev server URL it prints (typically `http://localhost:5173`) to play.
+
+### 4. Contributing
+
+Contributions are warmly welcomed. To contribute, please either raise an issue or open a pull request with a suggested fix. 
