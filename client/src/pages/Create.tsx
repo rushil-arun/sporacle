@@ -80,7 +80,7 @@ export const Create: React.FC = () => {
       setTimeLeft(0);
       navigate('/join');
     } else {
-      setSubmitError(createError || 'Failed to create game');
+      setSubmitError(createError || 'Failed to create lobby');
     }
   };
 
@@ -105,10 +105,10 @@ export const Create: React.FC = () => {
         <div className="card-glass rounded-2xl p-6 space-y-5">
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">
-              Create a Game
+              Create a Lobby
             </h2>
             <p className="text-muted-foreground text-xs mt-0.5">
-              Choose a category and difficulty to generate your game.
+              Choose a category and difficulty to generate your lobby.
             </p>
           </div>
 
@@ -223,7 +223,14 @@ export const Create: React.FC = () => {
             }
             onClick={handleCreate}
           >
-            {creatingGame ? 'Creating...' : 'Create Game'}
+            {creatingGame ? 'Creating...' : 'Create Lobby'}
+          </button>
+
+          <button
+            className="w-full text-center text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+            onClick={() => navigate('/create-template')}
+          >
+            Create Game Template
           </button>
         </div>
       </div>

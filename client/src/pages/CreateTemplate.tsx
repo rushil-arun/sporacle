@@ -93,7 +93,7 @@ export const CreateTemplate: React.FC = () => {
 
       <div className="relative z-10 w-full max-w-sm px-4 animate-fade-up">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/create')}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm mb-6 font-body"
         >
           <ArrowLeft className="w-4 h-4" />

@@ -41,25 +41,13 @@ export const Home: React.FC = () => {
             className="btn-primary text-sm"
             onClick={() => navigate('/join')}
           >
-            Join Game
+            Join Lobby
           </button>
           <button
             className="btn-secondary text-sm"
             onClick={() => navigate('/create')}
           >
-            Create Game
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
-            onClick={() => navigate('/lobbies')}
-          >
-            Available Lobbies
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
-            onClick={() => navigate('/create-template')}
-          >
-            Create Game Template
+            Create Lobby
           </button>
         </div>
       </div>

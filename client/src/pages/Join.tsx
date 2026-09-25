@@ -69,7 +69,7 @@ export const Join: React.FC = () => {
     }
 
     if (fullCode.length !== CodeLength) {
-      setSubmitError('Please enter all 6 characters of the game code');
+      setSubmitError('Please enter all 6 characters of the lobby code');
       return;
     }
 
@@ -102,7 +102,7 @@ export const Join: React.FC = () => {
         };
 
         ws.onerror = () => {
-          setError('Failed to connect to game.');
+          setError('Failed to connect to lobby.');
         };
 
         ws.onclose = () => {
@@ -113,7 +113,7 @@ export const Join: React.FC = () => {
         setConnecting(false);
       }
     } else {
-      setSubmitError(error || 'Failed to join game');
+      setSubmitError(error || 'Failed to join lobby');
       setConnecting(false);
     }
   };
@@ -138,10 +138,10 @@ export const Join: React.FC = () => {
         <div className="card-glass rounded-2xl p-6 space-y-5">
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">
-              Join a Game
+              Join a Lobby
             </h2>
             <p className="text-muted-foreground text-xs mt-0.5">
-              Enter your name and the game code to join.
+              Enter your name and the lobby code to join.
             </p>
           </div>
 
@@ -160,7 +160,7 @@ export const Join: React.FC = () => {
           </div>
 
           <div>
-            <label className="label-sporacle">Game Code</label>
+            <label className="label-sporacle">Lobby Code</label>
             <div className="flex gap-2 justify-between">
               {codeInputs.map((char, i) => (
                 <input
@@ -203,7 +203,14 @@ export const Join: React.FC = () => {
             }
             onClick={handleJoin}
           >
-            {connecting ? 'Connecting...' : loading ? 'Joining...' : 'Join Game'}
+            {connecting ? 'Connecting...' : loading ? 'Joining...' : 'Join Lobby'}
+          </button>
+
+          <button
+            className="w-full text-center text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+            onClick={() => navigate('/lobbies')}
+          >
+            Available Lobbies
           </button>
         </div>
       </div>
