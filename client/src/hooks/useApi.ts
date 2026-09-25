@@ -87,6 +87,43 @@ export const useGetWsUrl = () => {
   return { getWsUrl, loading, error };
 };
 
+export interface Lobby {
+  code: string;
+  title: string;
+  creator: string;
+  timeLeft: number;
+}
+
+interface LobbiesResponse {
+  lobbies: Lobby[];
+}
+
+export const useLobbies = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLobbies = async (): Promise<Lobby[] | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get<LobbiesResponse>(
+        `${pickRandomServer()}/lobbies`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      return response.data.lobbies;
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      const errorMessage = axiosError.message || 'Failed to fetch lobbies';
+      setError(errorMessage);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { fetchLobbies, loading, error };
+};
+
 export const useTriviaFiles = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
