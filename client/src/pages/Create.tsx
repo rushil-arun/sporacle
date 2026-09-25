@@ -225,6 +225,13 @@ export const Create: React.FC = () => {
           >
             {creatingGame ? 'Creating...' : 'Create Lobby'}
           </button>
+
+          <button
+            className="w-full text-center text-muted-foreground hover:text-foreground transition-colors text-xs font-body underline underline-offset-4"
+            onClick={() => navigate('/create-template')}
+          >
+            Create Game Template
+          </button>
         </div>
       </div>
     </div>
