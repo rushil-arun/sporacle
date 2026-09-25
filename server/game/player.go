@@ -58,7 +58,7 @@ func (p *Player) Read(m *Manager) {
 			return
 		}
 
-		if req.Username == "" || req.Code == "" || req.Item == "" {
+		if req.Username == "" || req.Code == "" || (req.Item == "" && req.Message == "") {
 			continue
 		}
 

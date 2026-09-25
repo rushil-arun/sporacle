@@ -22,6 +22,9 @@ var PlayerColors = []string{
 	"51 99% 62%",   // #Fee440
 }
 
+// MaxChatMessages caps how many lobby chat messages a Manager keeps in memory.
+const MaxChatMessages = 200
+
 type Manager struct {
 	Title           string              // name of the game; key into trivia/*.json
 	Code            string              // unique game code, 6 uppercase letters/numbers
@@ -36,6 +39,7 @@ type Manager struct {
 	SquaresTaken    int
 	LobbyTime       int
 	GameTime        int
+	ChatMessages    []ChatMessage // lobby chat history, only appended to while GameStarted is false
 	// OnGameStart, if set, is called once when the lobby phase ends and the game
 	// starts. Set it before Run() is started as a goroutine; it is only ever read
 	// and invoked from within Run(), so no further synchronization is needed.
@@ -220,13 +224,23 @@ func (m *Manager) Run() {
 				return
 			}
 
-			if !m.GameStarted || m.Time < 0 {
-
-				continue
-			}
 			if !ok || event.Code != m.Code {
 				m.CloseConnections()
 				return
+			}
+
+			if event.Message != "" {
+				if !m.GameStarted {
+					if sender, senderExists := m.Players[event.Username]; senderExists {
+						m.AddChatMessage(sender, event.Message)
+					}
+				}
+				continue
+			}
+
+			if !m.GameStarted || m.Time < 0 {
+
+				continue
 			}
 			player, playerExists := m.Players[event.Username]
 			if !playerExists {
@@ -283,6 +297,27 @@ func (m *Manager) BroadcastStartGame() {
 	for _, p := range m.Players {
 		select {
 		case p.OutboundRequests <- GameEvent{Type: shared.WSEventStart}:
+		default:
+		}
+	}
+}
+
+// AddChatMessage appends a lobby chat message and broadcasts it to all players.
+// Only called from Run(), so no locking is needed (Run() is the sole owner of
+// Players/ChatMessages while the game is live).
+func (m *Manager) AddChatMessage(sender *Player, text string) {
+	msg := ChatMessage{Username: sender.Username, Color: sender.Color, Text: text}
+	m.ChatMessages = append(m.ChatMessages, msg)
+	if len(m.ChatMessages) > MaxChatMessages {
+		m.ChatMessages = m.ChatMessages[len(m.ChatMessages)-MaxChatMessages:]
+	}
+	m.BroadcastChat(msg)
+}
+
+func (m *Manager) BroadcastChat(msg ChatMessage) {
+	for _, p := range m.Players {
+		select {
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventChat, Chat: &msg}:
 		default:
 		}
 	}
