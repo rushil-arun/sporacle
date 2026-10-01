@@ -19,7 +19,7 @@ func TestLobbiesHandler_SingleServer_ListsUnstartedGame(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	gs := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", GameTime: test.GAME_TIME})
 	createReq := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	createRec := httptest.NewRecorder()
 	gameinit.CreateHandler(gs, nil, "", createRec, createReq)
@@ -53,9 +53,6 @@ func TestLobbiesHandler_SingleServer_ListsUnstartedGame(t *testing.T) {
 	if got.Creator != "" {
 		t.Errorf("creator = %q, want empty before anyone joins", got.Creator)
 	}
-	if got.TimeLeft <= 0 {
-		t.Errorf("timeLeft = %d, want > 0", got.TimeLeft)
-	}
 }
 
 func TestLobbiesHandler_MultiServer_ListsAcrossCluster(t *testing.T) {
@@ -67,7 +64,7 @@ func TestLobbiesHandler_MultiServer_ListsAcrossCluster(t *testing.T) {
 	rediscoord.RegisterServer(t.Context(), rdb, "localhost:8080")
 
 	gs := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", GameTime: test.GAME_TIME})
 	createReq := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	createRec := httptest.NewRecorder()
 	gameinit.CreateHandler(gs, rdb, "localhost:8080", createRec, createReq)

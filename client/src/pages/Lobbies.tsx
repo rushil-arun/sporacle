@@ -7,13 +7,6 @@ import { useLobbies, type Lobby } from '../hooks/useApi';
 
 const POLL_INTERVAL_MS = 5000;
 
-const formatTimeLeft = (seconds: number): string => {
-  if (seconds <= 0) return '0:00';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
 export const Lobbies: React.FC = () => {
   const navigate = useNavigate();
   const { setCode } = useGame();
@@ -40,20 +33,6 @@ export const Lobbies: React.FC = () => {
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLobbies is stable
-  }, []);
-
-  // Tick the displayed countdowns down locally every second between polls,
-  // so they don't sit frozen for up to POLL_INTERVAL_MS at a time.
-  useEffect(() => {
-    const tick = setInterval(() => {
-      setLobbies((prev) =>
-        prev.map((lobby) => ({
-          ...lobby,
-          timeLeft: Math.max(0, lobby.timeLeft - 1),
-        }))
-      );
-    }, 1000);
-    return () => clearInterval(tick);
   }, []);
 
   const handleJoin = (code: string) => {
@@ -130,8 +109,6 @@ export const Lobbies: React.FC = () => {
                       <span className="truncate">
                         {lobby.creator ? lobby.creator : 'Waiting for host'}
                       </span>
-                      <span>·</span>
-                      <span>{formatTimeLeft(lobby.timeLeft)} left</span>
                     </div>
                   </div>
                   <button

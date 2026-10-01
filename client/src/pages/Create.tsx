@@ -31,7 +31,6 @@ export const Create: React.FC = () => {
   const [difficulties, setDifficulties] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [lobbyTime, setLobbyTime] = useState("");
   const [gameTime, setGameTime] = useState("");
 
   useEffect(() => {
@@ -73,7 +72,7 @@ export const Create: React.FC = () => {
       setSubmitError('Please select a category and difficulty');
       return;
     }
-    const result = await createGame(selectedDifficulty, Number(lobbyTime), Number(gameTime));
+    const result = await createGame(selectedDifficulty, Number(gameTime));
     if (result) {
       setCode(result.code);
       setServerAddr(result.serverAddr);
@@ -84,9 +83,7 @@ export const Create: React.FC = () => {
     }
   };
 
-  const timesValid =
-    lobbyTime !== "" && Number(lobbyTime) >= 10 &&
-    gameTime !== "" && Number(gameTime) >= 10;
+  const timesValid = gameTime !== "" && Number(gameTime) >= 10;
   const isValid = selectedCategory !== "" && selectedDifficulty !== "" && timesValid;
 
   return (
@@ -175,35 +172,19 @@ export const Create: React.FC = () => {
 
           {/* Time settings — only shown once difficulty selected */}
           {selectedDifficulty && (
-            <div className="animate-fade-up grid grid-cols-2 gap-3" style={{ animationDuration: "0.25s" }}>
-              <div>
-                <label className="label-sporacle">Lobby Time (sec)</label>
-                <input
-                  type="number"
-                  min={10}
-                  className="input-sporacle"
-                  placeholder="e.g. 30"
-                  value={lobbyTime}
-                  onChange={(e) => setLobbyTime(e.target.value)}
-                />
-                {lobbyTime !== "" && Number(lobbyTime) < 10 && (
-                  <p className="text-destructive text-xs mt-1">Must be ≥ 10</p>
-                )}
-              </div>
-              <div>
-                <label className="label-sporacle">Game Time (sec)</label>
-                <input
-                  type="number"
-                  min={10}
-                  className="input-sporacle"
-                  placeholder="e.g. 120"
-                  value={gameTime}
-                  onChange={(e) => setGameTime(e.target.value)}
-                />
-                {gameTime !== "" && Number(gameTime) < 10 && (
-                  <p className="text-destructive text-xs mt-1">Must be ≥ 10</p>
-                )}
-              </div>
+            <div className="animate-fade-up" style={{ animationDuration: "0.25s" }}>
+              <label className="label-sporacle">Game Time (sec)</label>
+              <input
+                type="number"
+                min={10}
+                className="input-sporacle"
+                placeholder="e.g. 120"
+                value={gameTime}
+                onChange={(e) => setGameTime(e.target.value)}
+              />
+              {gameTime !== "" && Number(gameTime) < 10 && (
+                <p className="text-destructive text-xs mt-1">Must be ≥ 10</p>
+              )}
             </div>
           )}
 

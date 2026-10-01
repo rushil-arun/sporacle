@@ -88,5 +88,18 @@ func DeregisterServer(ctx context.Context, rdb *redis.Client, serverAddr string)
 			}
 		}
 	}
+	// Lobbies no longer expire on a timer, so drop this server's open lobbies
+	// too, or they would stay listed (and unjoinable) forever.
+	lobbies, err := ListLobbies(ctx, rdb)
+	if err != nil {
+		return err
+	}
+	for _, l := range lobbies {
+		if l.ServerAddr == serverAddr {
+			if err := RemoveLobbyInfo(ctx, rdb, l.Code); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

@@ -25,7 +25,7 @@ func TestForwardCreate_Success(t *testing.T) {
 
 	// ts.Listener.Addr().String() gives "127.0.0.1:<port>"; strip the scheme.
 	addr := ts.Listener.Addr().String()
-	req := gameinit.CreateRequest{Title: "US Capitals", LobbyTime: 10, GameTime: 10}
+	req := gameinit.CreateRequest{Title: "US Capitals", GameTime: 10}
 	got, err := gameinit.ForwardCreate(context.Background(), addr, req)
 	if err != nil {
 		t.Fatalf("ForwardCreate: %v", err)
@@ -42,7 +42,7 @@ func TestForwardCreate_ServerError(t *testing.T) {
 	defer ts.Close()
 
 	_, err := gameinit.ForwardCreate(context.Background(), ts.Listener.Addr().String(),
-		gameinit.CreateRequest{Title: "US Capitals", LobbyTime: 10, GameTime: 10})
+		gameinit.CreateRequest{Title: "US Capitals", GameTime: 10})
 	if err == nil {
 		t.Fatal("expected error when target returns 500, got nil")
 	}
@@ -58,7 +58,7 @@ func TestForwardCreate_Timeout(t *testing.T) {
 	defer cancel()
 
 	_, err := gameinit.ForwardCreate(ctx, ts.Listener.Addr().String(),
-		gameinit.CreateRequest{Title: "US Capitals", LobbyTime: 10, GameTime: 10})
+		gameinit.CreateRequest{Title: "US Capitals", GameTime: 10})
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}

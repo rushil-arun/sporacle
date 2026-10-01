@@ -24,13 +24,13 @@ func TestSetGameAndGetGame(t *testing.T) {
 	if g := s.GetGame(code); g != nil {
 		t.Errorf("GetGame(%q) expected nil, got %v", code, g)
 	}
-	m := game.NewManager("US Capitals", code, test.LOBBY_TIME, test.GAME_TIME)
+	m := game.NewManager("US Capitals", code, test.GAME_TIME)
 	s.SetGame(code, m)
 	if g := s.GetGame(code); g != m {
 		t.Errorf("GetGame(%q) expected same manager, got %v", code, g)
 	}
 	// Overwrite
-	m2 := game.NewManager("NBA Teams", code, test.LOBBY_TIME, test.GAME_TIME)
+	m2 := game.NewManager("NBA Teams", code, test.GAME_TIME)
 	s.SetGame(code, m2)
 	if g := s.GetGame(code); g != m2 {
 		t.Errorf("GetGame after SetGame expected m2, got %v", g)
@@ -45,7 +45,7 @@ func TestCreate(t *testing.T) {
 	s := state.NewGlobalState()
 	title := "US Capitals"
 
-	m := s.Create(title, test.LOBBY_TIME, test.GAME_TIME)
+	m := s.Create(title, test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create with valid title expected non-nil Manager")
 	}
@@ -60,7 +60,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	// Second Create returns a different game with a different code
-	m2 := s.Create("NBA Teams", test.LOBBY_TIME, test.GAME_TIME)
+	m2 := s.Create("NBA Teams", test.GAME_TIME)
 	if m2 == nil {
 		t.Fatal("Create second game expected non-nil Manager")
 	}
@@ -69,7 +69,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	// Invalid title should return nil
-	m3 := s.Create("NonExistentTitleXYZ", test.LOBBY_TIME, test.GAME_TIME)
+	m3 := s.Create("NonExistentTitleXYZ", test.GAME_TIME)
 	if m3 != nil {
 		t.Error("Create with invalid title expected nil")
 	}
@@ -81,7 +81,7 @@ func TestCanJoin(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	s := state.NewGlobalState()
-	m := s.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := s.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
