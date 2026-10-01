@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
 import { useNavigate } from 'react-router-dom';
-import { WSEventTime, WSEventPlayers, WSEventStart, WSEventChat } from '@/lib/constants';
+import { WSEventPlayers, WSEventStart, WSEventChat } from '@/lib/constants';
 import type { ChatMessage } from '@/types/types';
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -48,10 +48,10 @@ function getFloatStyle(index: number, total: number) {
 
 export const Lobby: React.FC = () => {
   const navigate = useNavigate();
-  const { ws, username, code, title, timeLeft, setTimeLeft } = useGame();
+  const { ws, username, code, title, setTimeLeft } = useGame();
   const [players, setPlayers] = useState<Map<string, Player>>(new Map());
+  const [host, setHost] = useState('');
   const [copied, setCopied] = useState(false);
-  const [initialTime, setInitialTime] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,12 +63,8 @@ export const Lobby: React.FC = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.Type === WSEventTime) {
-          if (initialTime == 0) {
-            setInitialTime(message.TimeLeft)
-          }
-          setTimeLeft(message.TimeLeft);
-        } else if (message.Type === WSEventPlayers) {
+        if (message.Type === WSEventPlayers) {
+          setHost(message.Host ?? '');
           setPlayers((prev) => {
             const updated = new Map(prev);
             for (const [username, playerData] of Object.entries(message.Players)) {
@@ -116,6 +112,13 @@ export const Lobby: React.FC = () => {
     setUnreadCount(0);
   };
 
+  const isHost = host !== '' && host === username;
+
+  const startGame = () => {
+    if (!isHost || ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ username, code, Start: true }));
+  };
+
   const sendChat = () => {
     const text = chatInput.trim();
     if (!text || ws?.readyState !== WebSocket.OPEN) return;
@@ -135,7 +138,7 @@ export const Lobby: React.FC = () => {
             {title}
           </h1>
 
-          {/* Code + countdown row */}
+          {/* Code + start row */}
           <div className="flex items-center justify-between gap-4">
             {/* Game code */}
             <button
@@ -153,18 +156,19 @@ export const Lobby: React.FC = () => {
               )}
             </button>
 
-            {/* Countdown */}
-            <div className="flex flex-col items-end gap-1 min-w-[120px]">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Starting in
+            {/* Host starts the game; everyone else waits */}
+            {isHost ? (
+              <button
+                onClick={startGame}
+                className="btn-secondary text-sm px-5 py-2"
+              >
+                Start Game
+              </button>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">
+                {host ? `Waiting for ${host} to start` : 'Waiting for host'}
               </span>
-              <div className="flex items-baseline gap-1">
-                <span className="font-display text-3xl font-bold text-foreground tabular-nums" style={{color: (timeLeft !== null && timeLeft <= 3) ? "red" : ""}}>
-                  {timeLeft > 0 ? timeLeft : ""}
-                </span>
-                <span className="text-sm text-muted-foreground">s</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Player count */}

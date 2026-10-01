@@ -42,7 +42,6 @@ Key `.env` values:
 - `SERVER_ADDR` — publicly advertised address, used for Redis routing and building WebSocket URLs (default `localhost:8080`)
 - `REDIS_ADDR` — Redis connection address (default `localhost:6379`)
 - `WS_SCHEME` — scheme used in WebSocket URLs returned to clients; `ws` for local dev, `wss` when deployed behind TLS
-- `LOBBY_TIME` — default lobby countdown in seconds
 
 The server logs `Listening on :8080` once it's up.
 

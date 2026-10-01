@@ -52,7 +52,7 @@ func TestCreateHandler_InvalidTitle(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(globalState, nil, "", rec, req)
@@ -67,7 +67,7 @@ func TestCreateHandler_Success(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "US Capitals", GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.CreateHandler(globalState, nil, "", rec, req)
@@ -191,7 +191,7 @@ func TestConnect_UsernameAlreadyConnected(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := globalState.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -229,7 +229,7 @@ func TestConnect_FirstConnection(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := globalState.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -261,7 +261,7 @@ func TestConnect_TwoDifferentUsers(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := globalState.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}

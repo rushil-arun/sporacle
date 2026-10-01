@@ -17,7 +17,6 @@ export const useCreateGame = () => {
 
   const createGame = async (
     title: string,
-    lobbyTime: number,
     gameTime: number
   ): Promise<{ code: string; serverAddr: string } | null> => {
     setLoading(true);
@@ -25,7 +24,7 @@ export const useCreateGame = () => {
     try {
       const response = await axios.post<CreateGameResponse>(
         `${pickRandomServer()}/create-game`,
-        { title, lobbyTime, gameTime },
+        { title, gameTime },
         { headers: { 'Content-Type': 'application/json' } }
       );
       return { code: response.data.code, serverAddr: response.data.serverAddr };
@@ -91,7 +90,6 @@ export interface Lobby {
   code: string;
   title: string;
   creator: string;
-  timeLeft: number;
 }
 
 interface LobbiesResponse {

@@ -33,15 +33,13 @@ type Manager struct {
 	Board           map[string]*Player  // category item -> player who claimed it (nil if unclaimed)
 	Colors          map[string]struct{} // set of assigned colors
 	Correct         map[*Player]int     // maps players to number of correct items they've inputted
-	Time            int                 // seconds remaining (60 until start, then 180)
+	Time            int                 // seconds remaining in the game; 0 (unused) during the lobby phase
 	InboundRequests chan PlayerRequest
 	GameStarted     bool
 	SquaresTaken    int
-	LobbyTime       int
 	GameTime        int
 	ChatMessages    []ChatMessage // lobby chat history, only appended to while GameStarted is false
-	// OnGameStart, if set, is called once when the lobby phase ends and the game
-	// starts. Set it before Run() is started as a goroutine; it is only ever read
+	// OnGameStart, if set, is called once when the host starts the game. Set it before Run() is started as a goroutine; it is only ever read
 	// and invoked from within Run(), so no further synchronization is needed.
 	OnGameStart func()
 	mu          sync.RWMutex
@@ -50,10 +48,9 @@ type Manager struct {
 // LobbySnapshot is a point-in-time, read-only view of a game still in its lobby
 // phase, suitable for listing in the "available lobbies" UI.
 type LobbySnapshot struct {
-	Code     string `json:"code"`
-	Title    string `json:"title"`
-	Creator  string `json:"creator"`
-	TimeLeft int    `json:"timeLeft"`
+	Code    string `json:"code"`
+	Title   string `json:"title"`
+	Creator string `json:"creator"`
 }
 
 // Snapshot returns a LobbySnapshot for this game, and false if the game has
@@ -65,10 +62,9 @@ func (m *Manager) Snapshot() (LobbySnapshot, bool) {
 		return LobbySnapshot{}, false
 	}
 	return LobbySnapshot{
-		Code:     m.Code,
-		Title:    m.Title,
-		Creator:  m.Creator,
-		TimeLeft: m.Time,
+		Code:    m.Code,
+		Title:   m.Title,
+		Creator: m.Creator,
 	}, true
 }
 
@@ -80,9 +76,10 @@ type LeaderboardEntry struct {
 	IsTied   bool   `json:"isTied"`
 }
 
-// NewManager creates a Manager with the given title and code. Time is set to 60,
-// board and colors are initialized empty.
-func NewManager(title, code string, lobbyTime, gameTime int) *Manager {
+// NewManager creates a Manager with the given title and code. The lobby has no
+// timer; the game begins when the host sends a Start request. Board and colors
+// are initialized empty.
+func NewManager(title, code string, gameTime int) *Manager {
 	return &Manager{
 		Title:           title,
 		Code:            code,
@@ -90,11 +87,9 @@ func NewManager(title, code string, lobbyTime, gameTime int) *Manager {
 		Board:           make(map[string]*Player),
 		Colors:          make(map[string]struct{}),
 		Correct:         make(map[*Player]int),
-		Time:            lobbyTime,
 		GameStarted:     false,
 		InboundRequests: make(chan PlayerRequest, 256),
 		SquaresTaken:    0,
-		LobbyTime:       lobbyTime,
 		GameTime:        gameTime,
 	}
 }
@@ -184,42 +179,25 @@ func (m *Manager) Run() {
 				// don't tick until someone has joined
 				continue
 			}
+			if !m.GameStarted {
+				// the lobby has no countdown; just keep the roster fresh
+				m.BroadcastPlayers()
+				continue
+			}
 			m.Time--
 			if m.Time < -10 { // arbitrary threshold to end game
 				m.CloseConnections()
 				return
 			}
 			if m.Time == 0 {
-				if !m.GameStarted {
-					if len(m.Players) == 0 {
-						return
-					}
-					m.Time = m.GameTime
-					timer.Stop()
-					timer = time.NewTicker(1 * time.Second)
-					m.GameStarted = true
-					for _, p := range m.Players {
-						m.Correct[p] = 0
-					}
-					m.BroadcastStartGame()
-					if m.OnGameStart != nil {
-						m.OnGameStart()
-					}
-
-				} else {
-					// TODO: Need to send a winner here
-					m.BroadcastWinner()
-				}
-
+				// TODO: Need to send a winner here
+				m.BroadcastWinner()
 			}
 			m.BroadcastTime()
 			m.BroadcastState()
-			if !m.GameStarted {
-				m.BroadcastPlayers()
-			}
 
 		case event, ok := <-m.InboundRequests:
-			if event.Item == shared.GameOverSentinel && m.Time <= 0 {
+			if event.Item == shared.GameOverSentinel && m.GameStarted && m.Time <= 0 {
 				m.CloseConnections()
 				return
 			}
@@ -227,6 +205,15 @@ func (m *Manager) Run() {
 			if !ok || event.Code != m.Code {
 				m.CloseConnections()
 				return
+			}
+
+			if event.Start {
+				// only the host can start, and only once
+				if !m.GameStarted && event.Username == m.Creator {
+					m.startGame()
+					timer.Reset(1 * time.Second)
+				}
+				continue
 			}
 
 			if event.Message != "" {
@@ -273,6 +260,21 @@ func (m *Manager) Run() {
 			m.BroadcastState()
 		}
 	}
+}
+
+// startGame ends the lobby phase and begins the game. Only called from Run().
+func (m *Manager) startGame() {
+	m.Time = m.GameTime
+	m.GameStarted = true
+	for _, p := range m.Players {
+		m.Correct[p] = 0
+	}
+	m.BroadcastStartGame()
+	if m.OnGameStart != nil {
+		m.OnGameStart()
+	}
+	m.BroadcastTime()
+	m.BroadcastState()
 }
 
 func (m *Manager) BroadcastState() {
@@ -326,7 +328,7 @@ func (m *Manager) BroadcastChat(msg ChatMessage) {
 func (m *Manager) BroadcastPlayers() {
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: shared.WSEventPlayers, Players: m.Players}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventPlayers, Players: m.Players, Host: m.Creator}:
 		default:
 		}
 	}

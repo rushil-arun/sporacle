@@ -43,13 +43,11 @@ Creates a new game. In multi-server mode the request is routed by Redis to the l
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `title` | string | yes | Trivia category / game name |
-| `lobbyTime` | number | yes | Lobby countdown in seconds (minimum 10) |
 | `gameTime` | number | yes | Game duration in seconds (minimum 10) |
 
 ```json
 {
   "title": "World Capitals",
-  "lobbyTime": 60,
   "gameTime": 180
 }
 ```
@@ -171,7 +169,6 @@ Creates a game directly on the receiving server without consulting Redis. Called
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `title` | string | yes | Same as `/create-game` |
-| `lobbyTime` | number | yes | Same as `/create-game` |
 | `gameTime` | number | yes | Same as `/create-game` |
 | `code` | string | no | Pre-assigned code from the routing server |
 
@@ -203,6 +200,12 @@ Sent whenever the player submits an answer, and once when the game ends.
   "code": "A3BX9Z",
   "Item": "Paris"
 }
+```
+
+**Lobby messages:** during the lobby phase a player may instead send `"Message"` (chat text), and the host (first player to join) sends `"Start": true` to begin the game. `Start` from any other player is ignored.
+
+```json
+{ "username": "alice", "code": "A3BX9Z", "Start": true }
 ```
 
 **Special value:** when the client receives a `Leaderboard` event it sends `"Item": "GAME_OVER"` to signal the server that it has acknowledged the end of the game.
@@ -237,19 +240,19 @@ All server-push messages share this top-level structure. Only the fields relevan
 
 #### Event type: `Time`
 
-Broadcast every second. Carries the countdown for the active phase (lobby or game).
+Broadcast every second. Carries the game countdown. There is no lobby countdown.
 
 ```json
 { "Type": "Time", "TimeLeft": 42 }
 ```
 
-Sent during both the lobby and game phases.
+Sent once when the game starts and then every second during the game phase.
 
 ---
 
 #### Event type: `Players`
 
-Broadcast every second during the **lobby phase**. Contains the full current player roster.
+Broadcast every second during the **lobby phase**. Contains the full current player roster. `Host` is the username of the lobby host (the first player to join), the only player allowed to start the game.
 
 ```json
 {
@@ -265,7 +268,7 @@ Broadcast every second during the **lobby phase**. Contains the full current pla
 
 #### Event type: `Start`
 
-Broadcast once when the lobby countdown reaches zero and the game begins. No payload beyond `Type`.
+Broadcast once when the host starts the game. No payload beyond `Type`.
 
 ```json
 { "Type": "Start" }
@@ -333,9 +336,9 @@ Client                              Server
   |                                    |  (or { type: "error", message } + close)
   |                                    |
   |          [Lobby phase]             |
-  |<-- Time (every 1s) ---------------|
   |<-- Players (every 1s) ------------|
   |                                    |
+  |-- { Start: true } (host only) ---->|
   |          [Game starts]             |
   |<-- Start --------------------------|  Client navigates to /game
   |                                    |

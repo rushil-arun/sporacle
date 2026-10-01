@@ -9,6 +9,7 @@ import (
 	test "server/tst"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -25,7 +26,7 @@ func setupGameWithConn(t *testing.T) (*game.Manager, string, *websocket.Conn, *g
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", test.LOBBY_TIME, test.GAME_TIME)
+	m := globalState.Create("US Capitals", test.GAME_TIME)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -68,7 +69,8 @@ func TestWrite_SendsEventsToWebSocket(t *testing.T) {
 	// Start Run() so Read/Write routines run (Run calls StartRoutines)
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
+	sendStart(t, conn, "LeBron", code)
+	// Drain messages until the game starts
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
@@ -113,7 +115,8 @@ func TestRead_ValidRequestAppearsOnInboundRequests(t *testing.T) {
 
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
+	sendStart(t, conn, "LeBron", code)
+	// Drain messages until the game starts
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
@@ -171,7 +174,8 @@ func TestRead_InvalidRequestIgnored(t *testing.T) {
 
 	go m.Run()
 
-	// Drain messages until game starts (timer fires quickly)
+	sendStart(t, conn, "LeBron", code)
+	// Drain messages until the game starts
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
@@ -292,7 +296,7 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	m := globalState.Create("US Capitals", 2, 2)
+	m := globalState.Create("US Capitals", 2)
 	if m == nil {
 		t.Fatal("Create failed")
 	}
@@ -319,7 +323,8 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 	// Start Run (player already connected, so StartRoutines will pick them up)
 	go m.Run()
 
-	// Drain messages until we get "Start" (game started). Timer fires every 60ns so this is fast.
+	sendStart(t, conn, "Steph", code)
+	// Drain messages until we get "Start" (game started).
 	for {
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
@@ -374,4 +379,94 @@ func TestRun_ProcessesInboundRequestAndBroadcastsState(t *testing.T) {
 		}
 	}
 	t.Fatalf("Did not recieve a message of type board with Steph: Sacramento mapping in %d iters", iters)
+}
+
+// sendStart asks the manager to start the game as the given user.
+func sendStart(t *testing.T, conn *websocket.Conn, username, code string) {
+	t.Helper()
+	if err := conn.WriteJSON(map[string]interface{}{"username": username, "code": code, "Start": true}); err != nil {
+		t.Fatalf("WriteJSON start: %v", err)
+	}
+}
+
+// dial connects a player to the game and consumes the handshake message.
+func dial(t *testing.T, serverURL, code, user string) *websocket.Conn {
+	t.Helper()
+	wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/ws?game=" + code + "&user=" + user
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial: %v", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	var success map[string]string
+	if err := conn.ReadJSON(&success); err != nil || success["type"] != "success" {
+		t.Fatalf("handshake: %v %v", err, success)
+	}
+	return conn
+}
+
+// watchStart reads conn in the background and closes the returned channel when
+// a Start event arrives. (A read deadline can't be used instead: gorilla
+// websocket connections are unusable after a read times out.)
+func watchStart(conn *websocket.Conn) <-chan struct{} {
+	started := make(chan struct{})
+	go func() {
+		for {
+			var msg map[string]interface{}
+			if err := conn.ReadJSON(&msg); err != nil {
+				return
+			}
+			if msg["Type"] == "Start" {
+				close(started)
+				return
+			}
+		}
+	}()
+	return started
+}
+
+// waitForStart reports whether started is closed within d.
+func waitForStart(started <-chan struct{}, d time.Duration) bool {
+	select {
+	case <-started:
+		return true
+	case <-time.After(d):
+		return false
+	}
+}
+
+func TestStart_OnlyHostStartsGameAndLobbyDoesNotAutoStart(t *testing.T) {
+	saved := state.TriviaBasePath
+	state.TriviaBasePath = testTriviaPath
+	defer func() { state.TriviaBasePath = saved }()
+
+	globalState := state.NewGlobalState()
+	m := globalState.Create("US Capitals", test.GAME_TIME)
+	if m == nil {
+		t.Fatal("Create failed")
+	}
+	mux := http.NewServeMux()
+	gameinit.RegisterRoutes(mux, globalState, nil, "", "ws")
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	host := dial(t, server.URL, m.Code, "Host")
+	guest := dial(t, server.URL, m.Code, "Guest")
+	hostStarted := watchStart(host)
+	guestStarted := watchStart(guest)
+	go m.Run()
+
+	// A guest asking to start must be ignored, and nothing starts on its own.
+	sendStart(t, guest, "Guest", m.Code)
+	if waitForStart(hostStarted, 2500*time.Millisecond) {
+		t.Fatal("game started without the host pressing Start")
+	}
+
+	sendStart(t, host, "Host", m.Code)
+	if !waitForStart(hostStarted, 3*time.Second) {
+		t.Fatal("host did not receive Start after pressing Start")
+	}
+	if !waitForStart(guestStarted, 3*time.Second) {
+		t.Fatal("guest did not receive Start")
+	}
 }
