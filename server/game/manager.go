@@ -180,105 +180,155 @@ func (m *Manager) Run() {
 	for {
 		select {
 		case <-timer.C:
-			if len(m.Players) == 0 {
-				// don't tick until someone has joined
-				continue
+			replacement, done := m.handleTick(timer)
+			if replacement != nil {
+				timer = replacement
 			}
-			m.Time--
-			if m.Time < -10 { // arbitrary threshold to end game
-				m.CloseConnections()
+			if done {
 				return
-			}
-			if m.Time == 0 {
-				if !m.GameStarted {
-					if len(m.Players) == 0 {
-						return
-					}
-					m.Time = m.GameTime
-					timer.Stop()
-					timer = time.NewTicker(1 * time.Second)
-					m.GameStarted = true
-					for _, p := range m.Players {
-						m.Correct[p] = 0
-					}
-					m.BroadcastStartGame()
-					if m.OnGameStart != nil {
-						m.OnGameStart()
-					}
-
-				} else {
-					// TODO: Need to send a winner here
-					m.BroadcastWinner()
-				}
-
-			}
-			m.BroadcastTime()
-			m.BroadcastState()
-			if !m.GameStarted {
-				m.BroadcastPlayers()
 			}
 
 		case event, ok := <-m.InboundRequests:
-			if event.Item == shared.GameOverSentinel && m.Time <= 0 {
-				m.CloseConnections()
+			if m.handleInbound(event, ok) {
 				return
 			}
-
-			if !ok || event.Code != m.Code {
-				m.CloseConnections()
-				return
-			}
-
-			if event.Message != "" {
-				if !m.GameStarted {
-					if sender, senderExists := m.Players[event.Username]; senderExists {
-						m.AddChatMessage(sender, event.Message)
-					}
-				}
-				continue
-			}
-
-			if !m.GameStarted || m.Time < 0 {
-
-				continue
-			}
-			player, playerExists := m.Players[event.Username]
-			if !playerExists {
-				continue
-			}
-			item := event.Item
-
-			var boardKey string
-			var currPlayer *Player
-			itemExists := false
-			for k, v := range m.Board {
-				if strings.EqualFold(k, item) {
-					boardKey = k
-					currPlayer = v
-					itemExists = true
-					break
-				}
-			}
-			if !itemExists || currPlayer != nil {
-				continue
-			}
-			m.Board[boardKey] = player
-			m.Correct[player] += 1
-			m.SquaresTaken += 1
-			if m.SquaresTaken == len(m.Board) {
-				m.BroadcastWinner()
-				m.Time = 0
-			}
-
-			m.BroadcastState()
 		}
 	}
 }
 
+// handleTick processes one timer tick: decrementing the clock, flipping
+// lobby->game on expiry, and broadcasting state. It takes m.mu itself (the
+// caller, Run(), must not hold it) since Connect() in game-init/handlers.go
+// mutates m.Players from a different goroutine and both sides must agree on
+// the same lock for it to mean anything.
+//
+// If the lobby just ended, the old ticker must be replaced (timer.Stop() was
+// called on it); the replacement is returned for Run() to swap in, or nil if
+// no swap is needed. The second return value reports whether Run() should
+// stop entirely.
+func (m *Manager) handleTick(timer *time.Ticker) (*time.Ticker, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.Players) == 0 {
+		// don't tick until someone has joined
+		return nil, false
+	}
+	m.Time--
+	if m.Time < -10 { // arbitrary threshold to end game
+		m.CloseConnections()
+		return nil, true
+	}
+	var replacement *time.Ticker
+	if m.Time == 0 {
+		if !m.GameStarted {
+			if len(m.Players) == 0 {
+				return nil, true
+			}
+			m.Time = m.GameTime
+			timer.Stop()
+			replacement = time.NewTicker(1 * time.Second)
+			m.GameStarted = true
+			for _, p := range m.Players {
+				m.Correct[p] = 0
+			}
+			m.BroadcastStartGame()
+			if m.OnGameStart != nil {
+				m.OnGameStart()
+			}
+
+		} else {
+			// TODO: Need to send a winner here
+			m.BroadcastWinner()
+		}
+
+	}
+	m.BroadcastTime()
+	m.BroadcastState()
+	if !m.GameStarted {
+		m.BroadcastPlayers()
+	}
+	return replacement, false
+}
+
+// handleInbound processes one PlayerRequest (a chat message or a board-square
+// claim). Like handleTick, it takes m.mu itself; see handleTick's comment.
+// Returns whether Run() should stop entirely.
+func (m *Manager) handleInbound(event PlayerRequest, ok bool) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if event.Item == shared.GameOverSentinel && m.Time <= 0 {
+		m.CloseConnections()
+		return true
+	}
+
+	if !ok || event.Code != m.Code {
+		m.CloseConnections()
+		return true
+	}
+
+	if event.Message != "" {
+		if !m.GameStarted {
+			if sender, senderExists := m.Players[event.Username]; senderExists {
+				m.AddChatMessage(sender, event.Message)
+			}
+		}
+		return false
+	}
+
+	if !m.GameStarted || m.Time < 0 {
+		return false
+	}
+	player, playerExists := m.Players[event.Username]
+	if !playerExists {
+		return false
+	}
+	item := event.Item
+
+	var boardKey string
+	var currPlayer *Player
+	itemExists := false
+	for k, v := range m.Board {
+		if strings.EqualFold(k, item) {
+			boardKey = k
+			currPlayer = v
+			itemExists = true
+			break
+		}
+	}
+	if !itemExists || currPlayer != nil {
+		return false
+	}
+	m.Board[boardKey] = player
+	m.Correct[player] += 1
+	m.SquaresTaken += 1
+	if m.SquaresTaken == len(m.Board) {
+		m.BroadcastWinner()
+		m.Time = 0
+	}
+
+	m.BroadcastState()
+	return false
+}
+
+// BroadcastState and the other Broadcast*/CloseConnections helpers below all
+// iterate m.Players (and some mutate m.Board/m.ChatMessages/m.Correct).
+// They're only ever called from handleTick/handleInbound, which hold m.mu;
+// do not call them without holding it.
+//
+// BroadcastState and BroadcastPlayers copy the map they send rather than
+// handing out m.Board/m.Players directly: the GameEvent is JSON-encoded later
+// by each Player.Write() goroutine, well after this function (and m.mu)
+// returns, so a live reference would race against the next write to that map.
 func (m *Manager) BroadcastState() {
+	boardCopy := make(map[string]*Player, len(m.Board))
+	for k, v := range m.Board {
+		boardCopy[k] = v
+	}
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: shared.WSEventBoard, State: m.Board}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventBoard, State: boardCopy}:
 		default:
 		}
 	}
@@ -303,8 +353,8 @@ func (m *Manager) BroadcastStartGame() {
 }
 
 // AddChatMessage appends a lobby chat message and broadcasts it to all players.
-// Only called from Run(), so no locking is needed (Run() is the sole owner of
-// Players/ChatMessages while the game is live).
+// Only called from handleInbound, which holds m.mu; see handleTick's comment
+// for why that lock is required despite Run() otherwise owning game state.
 func (m *Manager) AddChatMessage(sender *Player, text string) {
 	msg := ChatMessage{Username: sender.Username, Color: sender.Color, Text: text}
 	m.ChatMessages = append(m.ChatMessages, msg)
@@ -324,9 +374,13 @@ func (m *Manager) BroadcastChat(msg ChatMessage) {
 }
 
 func (m *Manager) BroadcastPlayers() {
+	playersCopy := make(map[string]*Player, len(m.Players))
+	for k, v := range m.Players {
+		playersCopy[k] = v
+	}
 	for _, p := range m.Players {
 		select {
-		case p.OutboundRequests <- GameEvent{Type: shared.WSEventPlayers, Players: m.Players}:
+		case p.OutboundRequests <- GameEvent{Type: shared.WSEventPlayers, Players: playersCopy}:
 		default:
 		}
 	}

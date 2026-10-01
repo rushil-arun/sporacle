@@ -62,7 +62,9 @@ func (p *Player) Read(m *Manager) {
 			continue
 		}
 
+		m.mu.RLock()
 		_, playerExists := m.Players[req.Username]
+		m.mu.RUnlock()
 		if (req.Code != m.Code) || !playerExists {
 			continue
 		}
