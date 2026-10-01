@@ -195,11 +195,8 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 		}
 	}
 
-	conn.WriteJSON(map[string]string{
-		"type":    shared.WSHandshakeSuccess,
-		"message": m.Title,
-	})
-
+	// Count the load before acknowledging, so a client that sees success
+	// always observes the incremented score.
 	if rdb != nil {
 		rediscoord.IncrLoad(context.Background(), rdb, serverAddr)
 		go func() {
@@ -207,6 +204,11 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 			rediscoord.DecrLoad(context.Background(), rdb, serverAddr)
 		}()
 	}
+
+	conn.WriteJSON(map[string]string{
+		"type":    shared.WSHandshakeSuccess,
+		"message": m.Title,
+	})
 }
 
 // registerLobby stores m's metadata in the cluster-wide open_lobbies hash and
