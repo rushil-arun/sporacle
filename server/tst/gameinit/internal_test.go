@@ -21,9 +21,8 @@ func TestInternalCreateHandler_Success(t *testing.T) {
 
 	globalState := state.NewGlobalState()
 	body, _ := json.Marshal(gameinit.CreateRequest{
-		Title:     "US Capitals",
-		LobbyTime: test.LOBBY_TIME,
-		GameTime:  test.GAME_TIME,
+		Title:    "US Capitals",
+		GameTime: test.GAME_TIME,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/internal/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -61,7 +60,7 @@ func TestInternalCreateHandler_InvalidTitle(t *testing.T) {
 	defer func() { state.TriviaBasePath = saved }()
 
 	globalState := state.NewGlobalState()
-	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", LobbyTime: test.LOBBY_TIME, GameTime: test.GAME_TIME})
+	body, _ := json.Marshal(gameinit.CreateRequest{Title: "NoSuchTitle", GameTime: test.GAME_TIME})
 	req := httptest.NewRequest(http.MethodPost, "/internal/create-game", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	gameinit.InternalCreateHandler(globalState, nil, testServerAddr, rec, req)

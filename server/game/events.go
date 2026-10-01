@@ -9,6 +9,7 @@ type GameEvent struct {
 	TimeLeft    int
 	Winner      *Player
 	Players     map[string]*Player
+	Creator     string
 	Leaderboard []LeaderboardEntry
 	Chat        *ChatMessage
 }
@@ -17,13 +18,15 @@ type GameEvent struct {
 An incoming request from a player.
 The "Item" represents the item that the player
 wants to enter into the board. "Message" is set instead
-of "Item" for a lobby chat message.
+of "Item" for a lobby chat message. "StartGame" is set instead
+of "Item"/"Message" when the host clicks "Start Game".
 */
 type PlayerRequest struct {
-	Username string `json:"username"`
-	Code     string `json:"code"`
-	Item     string `json:"Item"`
-	Message  string `json:"Message"`
+	Username  string `json:"username"`
+	Code      string `json:"code"`
+	Item      string `json:"Item"`
+	Message   string `json:"Message"`
+	StartGame bool   `json:"StartGame"`
 }
 
 // ChatMessage is a single lobby chat message, broadcast to all players

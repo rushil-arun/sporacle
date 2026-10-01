@@ -14,11 +14,10 @@ const OpenLobbiesHash = "open_lobbies"
 // LobbyInfo is the metadata stored per open lobby so any server can serve a
 // cluster-wide "available lobbies" listing without querying other servers directly.
 type LobbyInfo struct {
-	Code        string `json:"code"`
-	Title       string `json:"title"`
-	Creator     string `json:"creator"`
-	ServerAddr  string `json:"serverAddr"`
-	LobbyEndsAt int64  `json:"lobbyEndsAt"` // unix seconds; when the lobby phase is expected to end
+	Code       string `json:"code"`
+	Title      string `json:"title"`
+	Creator    string `json:"creator"`
+	ServerAddr string `json:"serverAddr"`
 }
 
 // SetLobbyInfo upserts the lobby's metadata in the open_lobbies hash.
