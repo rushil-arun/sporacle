@@ -101,3 +101,30 @@ func TestDeregisterServer(t *testing.T) {
 		t.Error("expected CCCC33 to remain for localhost:8081")
 	}
 }
+
+func TestDeregisterServer_RemovesItsOpenLobbies(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb, err := rediscoord.NewClient(mr.Addr())
+	if err != nil {
+		t.Fatalf("client: %v", err)
+	}
+	defer rdb.Close()
+	ctx := context.Background()
+
+	rediscoord.RegisterServer(ctx, rdb, "localhost:8080")
+	rediscoord.RegisterServer(ctx, rdb, "localhost:8081")
+	rediscoord.SetLobbyInfo(ctx, rdb, rediscoord.LobbyInfo{Code: "AAAA11", Title: "t", ServerAddr: "localhost:8080"})
+	rediscoord.SetLobbyInfo(ctx, rdb, rediscoord.LobbyInfo{Code: "CCCC33", Title: "t", ServerAddr: "localhost:8081"})
+
+	if err := rediscoord.DeregisterServer(ctx, rdb, "localhost:8080"); err != nil {
+		t.Fatalf("deregister: %v", err)
+	}
+
+	lobbies, err := rediscoord.ListLobbies(ctx, rdb)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(lobbies) != 1 || lobbies[0].Code != "CCCC33" {
+		t.Errorf("expected only CCCC33 to remain listed, got %+v", lobbies)
+	}
+}

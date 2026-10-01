@@ -209,7 +209,7 @@ func (m *Manager) Run() {
 			m.BroadcastState()
 
 		case event, ok := <-m.InboundRequests:
-			if event.Item == shared.GameOverSentinel && m.Time <= 0 {
+			if event.Item == shared.GameOverSentinel && m.GameStarted && m.Time <= 0 {
 				m.CloseConnections()
 				return
 			}
@@ -222,6 +222,7 @@ func (m *Manager) Run() {
 			if event.StartGame {
 				if !m.GameStarted && event.Username == m.Creator {
 					m.startGame()
+					timer.Reset(1 * time.Second)
 				}
 				continue
 			}
@@ -287,6 +288,8 @@ func (m *Manager) startGame() {
 	if m.OnGameStart != nil {
 		m.OnGameStart()
 	}
+	m.BroadcastTime()
+	m.BroadcastState()
 }
 
 func (m *Manager) BroadcastState() {
