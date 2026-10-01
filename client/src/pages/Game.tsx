@@ -3,6 +3,7 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import { useGame } from '../context/GameContext';
 import { useNavigate } from "react-router-dom";
 import type { LeaderboardEntry } from "@/types/types";
+import { clearSession } from '@/lib/session';
 import { WSEventTime, WSEventBoard, WSEventLeaderboard, GameOverSentinel } from '@/lib/constants';
 
 // ── Mock config ────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export const Game: React.FC = () => {
             return updated;
           });
         } else if (message.Type === WSEventLeaderboard) {
+          clearSession();
           setPodium(message.Leaderboard as LeaderboardEntry[]);
           const request = { username : username, code: code, Item: GameOverSentinel }
           if (ws?.readyState === WebSocket.OPEN) {

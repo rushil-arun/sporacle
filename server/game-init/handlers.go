@@ -2,6 +2,7 @@ package gameinit
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -139,6 +140,7 @@ func GetWSURLHandler(globalState *state.GlobalState, rdb *redis.Client, wsScheme
 func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr string, w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("game")
 	username := r.URL.Query().Get("user")
+	token := r.URL.Query().Get("token")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -163,6 +165,21 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 
 	m.Lock()
 	defer m.Unlock()
+
+	// A client that kept its session token can reclaim its player after a
+	// refresh or dropped connection, even once the game has started.
+	if existing := m.Players[username]; existing != nil && token != "" &&
+		subtle.ConstantTimeCompare([]byte(token), []byte(existing.Token)) == 1 {
+		existing.Reattach(m, conn)
+		trackLoad(rdb, serverAddr, existing)
+		conn.WriteJSON(map[string]interface{}{
+			"type":    shared.WSHandshakeSuccess,
+			"message": m.Title,
+			"token":   existing.Token,
+			"started": m.GameStarted,
+		})
+		return
+	}
 
 	if m.HasPlayerLocked(username) {
 		conn.WriteJSON(map[string]string{
@@ -196,18 +213,27 @@ func Connect(globalState *state.GlobalState, rdb *redis.Client, serverAddr strin
 		}
 	}
 
-	conn.WriteJSON(map[string]string{
+	// Count the connection before telling the client it succeeded.
+	trackLoad(rdb, serverAddr, player)
+	conn.WriteJSON(map[string]interface{}{
 		"type":    shared.WSHandshakeSuccess,
 		"message": m.Title,
+		"token":   player.Token,
 	})
+}
 
-	if rdb != nil {
-		rediscoord.IncrLoad(context.Background(), rdb, serverAddr)
-		go func() {
-			<-player.ConnClosed()
-			rediscoord.DecrLoad(context.Background(), rdb, serverAddr)
-		}()
+// trackLoad counts the player's current connection against the server's load
+// score until that connection closes. No-op in single-server mode.
+func trackLoad(rdb *redis.Client, serverAddr string, p *game.Player) {
+	if rdb == nil {
+		return
 	}
+	closed := p.ConnClosed()
+	rediscoord.IncrLoad(context.Background(), rdb, serverAddr)
+	go func() {
+		<-closed
+		rediscoord.DecrLoad(context.Background(), rdb, serverAddr)
+	}()
 }
 
 // registerLobby stores m's metadata in the cluster-wide open_lobbies hash and
