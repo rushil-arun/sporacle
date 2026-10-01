@@ -391,9 +391,6 @@ func (m *Manager) BroadcastWinner() {
 
 func (m *Manager) CloseConnections() {
 	for _, p := range m.Players {
-		if p.Connection == nil {
-			continue
-		}
-		p.Connection.Close()
+		p.CloseConnection()
 	}
 }

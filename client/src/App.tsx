@@ -11,6 +11,7 @@ import { Lobbies } from './pages/Lobbies';
 import { Lobby } from './pages/Lobby';
 import { Game } from './pages/Game'
 import Podium from './pages/Podium';
+import { SessionReconnect } from './components/SessionReconnect';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Toaster />
         <Sonner />
         <Router>
+          <SessionReconnect />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/join" element={<Join />} />

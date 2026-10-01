@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { useGame } from '../context/GameContext';
 import { useGetWsUrl } from '../hooks/useApi';
+import { saveSession } from '@/lib/session';
 import { CodeLength, WSHandshakeError, WSHandshakeSuccess } from '@/lib/constants';
 
 export const Join: React.FC = () => {
@@ -93,6 +94,7 @@ export const Join: React.FC = () => {
               setError(data.message);
             } else if (data.type === WSHandshakeSuccess) {
               setTitle(data.message)
+              saveSession({ username, code: fullCode, wsUrl: fullWsUrl, token: data.token, title: data.message });
               setWs(ws);
               navigate('/lobby');
             }

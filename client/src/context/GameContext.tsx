@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- useGame is a required export */
 import React, { createContext, useContext, useState } from 'react';
+import { clearSession } from '@/lib/session';
 import type { LeaderboardEntry } from '@/types/types';
 
 interface GameContextType {
@@ -38,6 +39,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [serverAddr, setServerAddr] = useState('');
 
   const reset = () => {
+    clearSession();
     if (ws) {
       ws.close();
       setWs(null);
